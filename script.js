@@ -1,8 +1,16 @@
 // Initialize EmailJS
 emailjs.init("OCug6QTCHUuWt7iCr");
 
-// Threshold for match (lower = stricter)
-const similarityThreshold = 0.6;
+// Threshold for match
+const threshold = 0.6;
+
+// Load models (local folder)
+async function loadModels() {
+  await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+  await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+  await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+  console.log('Models loaded!');
+}
 
 // Load stored people
 function loadStoredPeople() {
@@ -12,29 +20,6 @@ function loadStoredPeople() {
 
 function savePeople(people) {
   localStorage.setItem('foundPeople', JSON.stringify(people));
-}
-
-// Load model (runs in browser)
-let model = null;
-async function loadModel() {
-  if (!model) {
-    try {
-      model = await Xenova.pipeline('feature-extraction', 'Xenova/resnet-50');
-      console.log('Model loaded');
-    } catch (error) {
-      console.error('Model load failed:', error);
-      alert('Failed to load AI model. Refresh and try again.');
-    }
-  }
-  return model;
-}
-
-// Compute face embedding
-async function getEmbedding(image) {
-  const model = await loadModel();
-  const tensor = await Xenova.readImage(image);
-  const output = await model(tensor, { pooling: 'mean', normalize: true });
-  return output.data;
 }
 
 // Add missing person
@@ -50,25 +35,35 @@ async function addMissingPerson() {
   }
 
   try {
-    await loadModel(); // Ensure model is ready
-    const embeddings = [];
+    const descriptors = [];
     for (let file of files) {
       const img = await createImageFromFile(file);
-      const embedding = await getEmbedding(img);
-      embeddings.push(Array.from(embedding));
+      const detection = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+      if (detection) {
+        descriptors.push(Array.from(detection.descriptor));
+      } else {
+        alert('No face detected in photo.');
+      }
+    }
+
+    if (descriptors.length === 0) {
+      alert('No valid faces.');
+      return;
     }
 
     const stored = loadStoredPeople();
-    stored.push({ name, email, contact, embeddings });
+    stored.push({ name, email, contact, descriptors });
     savePeople(stored);
-    alert('Added successfully!');
+    alert('Added!');
   } catch (error) {
     console.error('Add error:', error);
-    alert('Error adding person: ' + error.message);
+    alert('Error adding person.');
   }
 }
 
-// Helper: Create image from file
+// Helper
 function createImageFromFile(file) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -88,48 +83,42 @@ async function checkFoundPerson() {
   }
 
   try {
-    await loadModel();
     const img = await createImageFromFile(file);
-    const queryEmbedding = await getEmbedding(img);
+    const detection = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks()
+      .withFaceDescriptor();
 
+    if (!detection) {
+      document.getElementById('result').innerText = 'No face detected.';
+      return;
+    }
+
+    const queryDescriptor = detection.descriptor;
     const stored = loadStoredPeople();
-    let bestMatch = { similarity: 0, name: null };
+    let bestMatch = { distance: 1, name: null };
 
     stored.forEach(person => {
-      person.embeddings.forEach(embedArr => {
-        const embed = new Float32Array(embedArr);
-        const similarity = cosineSimilarity(queryEmbedding, embed);
-        if (similarity > bestMatch.similarity) {
-          bestMatch = { similarity, name: person.name };
+      person.descriptors.forEach(descArr => {
+        const desc = new Float32Array(descArr);
+        const distance = faceapi.euclideanDistance(queryDescriptor, desc);
+        if (distance < bestMatch.distance) {
+          bestMatch = { distance, name: person.name };
         }
       });
     });
 
     const resultDiv = document.getElementById('result');
-    if (bestMatch.similarity > similarityThreshold) {
+    if (bestMatch.distance < threshold) {
       const match = stored.find(p => p.name === bestMatch.name);
-      resultDiv.innerText = `Match: ${bestMatch.name} (similarity: ${bestMatch.similarity.toFixed(2)})! Emails sent.`;
+      resultDiv.innerText = `Match found: ${bestMatch.name} (confidence: ${(1 - bestMatch.distance).toFixed(2)})!`;
       sendEmail(match.email, match.contact, bestMatch.name, finderEmail);
     } else {
-      resultDiv.innerText = `No match (best similarity: ${bestMatch.similarity.toFixed(2)}).`;
+      resultDiv.innerText = 'No match.';
     }
   } catch (error) {
     console.error('Check error:', error);
     document.getElementById('result').innerText = 'Error – try again.';
   }
-}
-
-// Cosine similarity
-function cosineSimilarity(a, b) {
-  let dot = 0;
-  let magA = 0;
-  let magB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    magA += a[i] * a[i];
-    magB += b[i] * b[i];
-  }
-  return dot / (Math.sqrt(magA) * Math.sqrt(magB));
 }
 
 // Send email to both
@@ -157,5 +146,5 @@ function sendEmail(toEmail, contactName, missingName, finderEmail) {
     .catch(err => alert('Email failed: ' + (err.text || err.message)));
 }
 
-// Load model on page load
-loadModel().catch(err => console.error('Initial model load failed:', err));
+// Load models on page load
+loadModels();
