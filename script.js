@@ -1,19 +1,19 @@
 // Initialize EmailJS
 emailjs.init("OCug6QTCHUuWt7iCr");
 
-// Threshold for match
+// Threshold for match (lower = stricter)
 const threshold = 0.6;
 
-// Load models
+// Load models (CDN fallback)
 async function loadModels() {
   try {
-    await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
-    await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
-    await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+    await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights');
+    await faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights');
+    await faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights');
     console.log('Models loaded!');
   } catch (error) {
     console.error('Model loading error:', error);
-    alert('Failed to load AI models.');
+    alert('Failed to load AI models. Refresh and try again.');
   }
 }
 
@@ -37,7 +37,7 @@ function createImageFromFile(file) {
   });
 }
 
-// Add missing person with photo preview
+// Add missing person with preview
 async function addMissingPerson() {
   const name = document.getElementById('name').value.trim();
   const email = document.getElementById('email').value.trim();
@@ -50,41 +50,37 @@ async function addMissingPerson() {
   }
 
   try {
-    // Show preview
     const previewDiv = document.getElementById('preview');
-    previewDiv.innerHTML = ''; // Clear old previews
-    for (let file of files) {
-      const imgUrl = URL.createObjectURL(file);
-      const img = document.createElement('img');
-      img.src = imgUrl;
-      img.style.width = '100px';
-      img.style.height = 'auto';
-      img.style.border = '1px solid #ccc';
-      previewDiv.appendChild(img);
-    }
-
+    previewDiv.innerHTML = '';
     const descriptors = [];
     for (let file of files) {
+      const imgUrl = URL.createObjectURL(file);
+      const imgElement = document.createElement('img');
+      imgElement.src = imgUrl;
+      imgElement.style.width = '100px';
+      previewDiv.appendChild(imgElement);
+
       const img = await createImageFromFile(file);
-      const detection = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
+      const detections = await faceapi.detectAllFaces(img, new faceapi.TinyFaceDetectorOptions())
         .withFaceLandmarks()
         .withFaceDescriptor();
-      if (detection) {
-        descriptors.push(Array.from(detection.descriptor));
+
+      if (detections.length > 0) {
+        descriptors.push(Array.from(detections[0].descriptor));
       } else {
-        alert('No face detected in one photo.');
+        previewDiv.innerHTML += '<p style="color:red;">No face detected in this photo.</p>';
       }
     }
 
     if (descriptors.length === 0) {
-      previewDiv.innerHTML = '<p>No valid faces detected.</p>';
+      alert('No valid faces detected in any photo.');
       return;
     }
 
     const stored = loadStoredPeople();
     stored.push({ name, email, contact, descriptors });
     savePeople(stored);
-    alert('Missing person added successfully!');
+    alert('Missing person added!');
   } catch (error) {
     console.error('Add error:', error);
     alert('Error adding person: ' + error.message);
@@ -103,16 +99,16 @@ async function checkFoundPerson() {
 
   try {
     const img = await createImageFromFile(file);
-    const detection = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
+    const detections = await faceapi.detectAllFaces(img, new faceapi.TinyFaceDetectorOptions())
       .withFaceLandmarks()
       .withFaceDescriptor();
 
-    if (!detection) {
+    if (detections.length === 0) {
       document.getElementById('result').innerText = 'No face detected.';
       return;
     }
 
-    const queryDescriptor = detection.descriptor;
+    const queryDescriptor = detections[0].descriptor;
     const stored = loadStoredPeople();
     let bestMatch = { distance: 1, name: null, email: null, contact: null };
 
