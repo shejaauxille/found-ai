@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Found AI — Reuniting Families</title>
+  <title>Found AI</title>
 
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
@@ -16,58 +16,35 @@
       --border: rgba(255,255,255,0.12);
       --text: #eaeaf0;
       --muted: #9aa4bf;
-
       --blue: #4f7cff;
       --green: #27ff9b;
       --purple: #9b7bff;
       --gradient: linear-gradient(135deg, #4f7cff, #9b7bff, #27ff9b);
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; scroll-behavior: smooth; }
 
     body {
       margin: 0;
       min-height: 100vh;
       font-family: Inter, system-ui, sans-serif;
-      background:
-        radial-gradient(800px 400px at top, #16204a33, transparent),
-        var(--bg);
+      background: radial-gradient(800px 400px at top, #16204a33, transparent), var(--bg);
       color: var(--text);
       display: flex;
       justify-content: center;
     }
 
-    .container {
-      width: 100%;
-      max-width: 900px;
-      padding: 50px 20px;
-    }
+    .container { width: 100%; max-width: 900px; padding: 50px 20px; }
 
-    header {
-      text-align: center;
-      margin-bottom: 50px;
-    }
-
+    header { text-align: center; margin-bottom: 50px; }
     header h1 {
       font-size: 3rem;
       margin: 0;
       background: var(--gradient);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      letter-spacing: -1px;
     }
 
-    header p {
-      margin-top: 12px;
-      font-size: 1.1rem;
-      color: var(--muted);
-    }
-
-    /* =======================
-       SELECTION CARDS
-    ======================== */
     .selection-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -84,56 +61,12 @@
       cursor: pointer;
       backdrop-filter: blur(14px);
       transition: all .35s ease;
-      position: relative;
-      overflow: hidden;
     }
 
-    .choice-card::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: var(--gradient);
-      opacity: 0;
-      transition: opacity .35s;
-    }
+    .choice-card:hover { transform: translateY(-6px); box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+    .choice-card.active { border-color: var(--blue); background: rgba(79, 124, 255, 0.1); }
+    .choice-card .icon { font-size: 44px; margin-bottom: 12px; }
 
-    .choice-card:hover {
-      transform: translateY(-6px) scale(1.02);
-      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-    }
-
-    .choice-card.active::before {
-      opacity: 0.12;
-    }
-
-    .choice-card.active {
-      border-color: transparent;
-      box-shadow: 0 0 0 1px #4f7cff55;
-    }
-
-    .choice-card * {
-      position: relative;
-      z-index: 2;
-    }
-
-    .choice-card .icon {
-      font-size: 44px;
-      margin-bottom: 12px;
-    }
-
-    .choice-card h3 {
-      margin: 10px 0 6px;
-      font-size: 1.3rem;
-    }
-
-    .choice-card p {
-      font-size: .95rem;
-      color: var(--muted);
-    }
-
-    /* =======================
-       FORMS
-    ======================== */
     .form-container {
       display: none;
       background: var(--card);
@@ -142,124 +75,34 @@
       padding: 40px;
       backdrop-filter: blur(18px);
       animation: fadeUp .4s ease;
-    }
-
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .form-container h2 {
-      margin-top: 0;
-      margin-bottom: 25px;
-      font-size: 1.8rem;
-    }
-
-    .input-group {
-      margin-bottom: 22px;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 8px;
-      font-size: .85rem;
-      color: var(--muted);
-    }
-
-    input[type="text"],
-    input[type="email"] {
-      width: 100%;
-      padding: 15px 16px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: #0d1328;
-      color: var(--text);
-      font-size: 1rem;
-      transition: .3s;
-    }
-
-    input::placeholder {
-      color: #7f89a8;
-    }
-
-    input:focus {
-      outline: none;
-      border-color: #4f7cff;
-      box-shadow: 0 0 0 3px #4f7cff33;
-    }
-
-    .file-input-wrapper {
-      border: 2px dashed #4f7cff55;
-      padding: 25px;
-      border-radius: 14px;
-      text-align: center;
-      background: #0d1328;
-    }
-
-    input[type="file"] {
-      color: var(--muted);
-    }
-
-    /* =======================
-       BUTTONS
-    ======================== */
-    button {
-      width: 100%;
-      padding: 16px;
-      border-radius: 14px;
-      border: none;
-      font-size: 1.05rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all .35s ease;
-    }
-
-    .btn-missing {
-      background: linear-gradient(135deg, #4f7cff, #9b7bff);
-      color: white;
-    }
-
-    .btn-found {
-      background: linear-gradient(135deg, #27ff9b, #18c27a);
-      color: #04150e;
-    }
-
-    button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 25px rgba(0,0,0,0.5);
-    }
-
-    button:disabled {
-      opacity: .5;
-      cursor: not-allowed;
-    }
-
-    #status, #result {
       margin-top: 20px;
-      padding: 15px;
-      border-radius: 12px;
-      background: #0d1328;
-      border: 1px solid var(--border);
-      text-align: center;
     }
 
-    @media (max-width: 650px) {
-      .selection-grid {
-        grid-template-columns: 1fr;
-      }
-      header h1 {
-        font-size: 2.4rem;
-      }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+    .input-group { margin-bottom: 22px; }
+    label { display: block; margin-bottom: 8px; font-size: .85rem; color: var(--muted); }
+
+    input[type="text"], input[type="email"] {
+      width: 100%; padding: 15px; border-radius: 12px; border: 1px solid var(--border);
+      background: #0d1328; color: var(--text); font-size: 1rem;
     }
+
+    .file-input-wrapper { border: 2px dashed #4f7cff55; padding: 25px; border-radius: 14px; text-align: center; background: #0d1328; }
+
+    button { width: 100%; padding: 16px; border-radius: 14px; border: none; font-size: 1.05rem; font-weight: 600; cursor: pointer; transition: 0.3s; }
+    .btn-missing { background: linear-gradient(135deg, #4f7cff, #9b7bff); color: white; }
+    .btn-found { background: linear-gradient(135deg, #27ff9b, #18c27a); color: #04150e; }
+
+    #status, #result { margin-top: 20px; padding: 15px; border-radius: 12px; background: #0d1328; border: 1px solid var(--border); text-align: center; }
   </style>
 </head>
-
 <body>
-<div class="container">
 
+<div class="container">
   <header>
-    <h1>Found AI</h1>
-    <p>Using artificial intelligence to reunite families, faster and safer.</p>
+    <h1>Found</h1>
+    <p>Using AI to reunite families, faster and safer.</p>
   </header>
 
   <div class="selection-grid">
@@ -268,7 +111,6 @@
       <h3>Report Missing</h3>
       <p>I am searching for someone</p>
     </div>
-
     <div class="choice-card" id="btn-show-found" onclick="toggleForm('found')">
       <div class="icon">🤝</div>
       <h3>Report Found</h3>
@@ -278,76 +120,50 @@
 
   <div id="form-missing" class="form-container">
     <h2>Register Missing Person</h2>
-
+    <div class="input-group"><label>Missing Person's Name</label><input type="text" id="name"></div>
+    <div class="input-group"><label>Your Name (Family Contact)</label><input type="text" id="contact"></div>
+    <div class="input-group"><label>Your Email</label><input type="email" id="email"></div>
+    <div class="input-group"><label>Home Location</label><input type="text" id="location"></div>
     <div class="input-group">
-      <label>Missing Person's Name</label>
-      <input type="text" id="name" placeholder="Full name">
+      <label>Photos</label>
+      <div class="file-input-wrapper"><input type="file" id="missing-photo" accept="image/*" multiple></div>
     </div>
-
-    <div class="input-group">
-      <label>Your Name (Family Contact)</label>
-      <input type="text" id="contact" placeholder="Your full name">
-    </div>
-
-    <div class="input-group">
-      <label>Your Email</label>
-      <input type="email" id="email" placeholder="Notification email">
-    </div>
-
-    <div class="input-group">
-      <label>Home Location</label>
-      <input type="text" id="location" placeholder="City / Area">
-    </div>
-
-    <div class="input-group">
-      <label>Photos of the Missing Person</label>
-      <div class="file-input-wrapper">
-        <input type="file" id="missing-photo" accept="image/*" multiple>
-      </div>
-    </div>
-
     <button class="btn-missing" onclick="addMissingPerson()">Register in Database</button>
     <div id="status"></div>
   </div>
 
   <div id="form-found" class="form-container">
     <h2>Report Someone Found</h2>
-
+    <div class="input-group"><label>Your Email</label><input type="email" id="finder-email"></div>
     <div class="input-group">
-      <label>Your Email</label>
-      <input type="email" id="finder-email" placeholder="Your email">
+      <label>Upload Photo</label>
+      <div class="file-input-wrapper"><input type="file" id="found-photo" accept="image/*"></div>
     </div>
-
-    <div class="input-group">
-      <label>Upload Their Photo</label>
-      <div class="file-input-wrapper">
-        <input type="file" id="found-photo" accept="image/*">
-      </div>
-    </div>
-
     <button class="btn-found" onclick="checkFoundPerson()">Scan for a Match</button>
     <div id="result"></div>
   </div>
-
 </div>
 
 <script src="script.js"></script>
 <script>
-function toggleForm(type) {
-  document.getElementById('form-missing').style.display = 'none';
-  document.getElementById('form-found').style.display = 'none';
+  function toggleForm(type) {
+    const missingForm = document.getElementById('form-missing');
+    const foundForm = document.getElementById('form-found');
+    
+    missingForm.style.display = 'none';
+    foundForm.style.display = 'none';
+    document.getElementById('btn-show-missing').classList.remove('active');
+    document.getElementById('btn-show-found').classList.remove('active');
 
-  document.getElementById('btn-show-missing').classList.remove('active');
-  document.getElementById('btn-show-found').classList.remove('active');
+    const targetForm = type === 'missing' ? missingForm : foundForm;
+    const targetBtn = type === 'missing' ? document.getElementById('btn-show-missing') : document.getElementById('btn-show-found');
 
-  if (type === 'missing') {
-    document.getElementById('form-missing').style.display = 'block';
-    document.getElementById('btn-show-missing').classList.add('active');
-  } else {
-    document.getElementById('form-found').style.display = 'block';
-    document.getElementById('btn-show-found').classList.add('active');
+    targetForm.style.display = 'block';
+    targetBtn.classList.add('active');
+
+    // Smooth Scroll to the form
+    targetForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
-}
 </script>
 </body>
 </html>
