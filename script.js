@@ -53,7 +53,6 @@ async function addMissingPerson() {
   }
 
   try {
-    // Create faceset (ignore if exists)
     let formData = new FormData();
     formData.append('outer_id', FACESET_OUTER_ID);
     await faceppCall('faceset/create', formData);
