@@ -1,32 +1,31 @@
 // Initialize EmailJS
 emailjs.init("OCug6QTCHUuWt7iCr");
 
-// Balanced threshold: 0.6 is the industry standard for face-api.js
+// Balanced threshold: 0.6 handles different lighting/backgrounds well.
 const threshold = 0.6; 
 const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 
 /**
  * 1. LOAD MODELS
- * SSD MobileNet V1 is used because it is much better at finding faces 
- * in busy backgrounds compared to the Tiny detector.
+ * SSD MobileNet V1 is more robust than TinyFace for different environments.
  */
 async function loadModels() {
   try {
-    console.log("Loading AI Models...");
+    console.log("Initializing AI...");
     await Promise.all([
       faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
       faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
       faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
     ]);
-    console.log('AI Models Loaded & Ready');
+    console.log('AI Models Loaded Successfully');
   } catch (error) {
     console.error('Model loading error:', error);
-    alert('AI models failed to load. Please check your connection and refresh.');
+    alert('Failed to load AI models. Please refresh.');
   }
 }
 
 /**
- * 2. DATA UTILITIES
+ * 2. DATA MANAGEMENT
  */
 function loadStoredPeople() {
   const data = localStorage.getItem('foundPeople');
@@ -52,29 +51,27 @@ function createImageFromFile(file) {
 
 /**
  * 3. ADD MISSING PERSON
- * Deep scans the photos and stores the face "fingerprint" (descriptor).
+ * Stores the specific face "fingerprint" along with family contact details.
  */
 async function addMissingPerson() {
-  const name = document.getElementById('name').value.trim();
-  const ownerEmail = document.getElementById('email').value.trim();
-  const contactName = document.getElementById('contact').value.trim();
+  const missingName = document.getElementById('name').value.trim(); // The person lost
+  const familyEmail = document.getElementById('email').value.trim(); // Family's email
+  const familyContactName = document.getElementById('contact').value.trim(); // Family member's name
   const files = document.getElementById('missing-photo').files;
 
-  if (!name || !ownerEmail || files.length === 0) {
+  if (!missingName || !familyEmail || files.length === 0) {
     alert('Please fill all fields and upload photos.');
     return;
   }
 
   const previewDiv = document.getElementById('preview');
-  previewDiv.innerHTML = '<b>Analyzing face...</b>';
+  previewDiv.innerHTML = '<b>Scanning face features...</b>';
 
   try {
     const descriptors = [];
     
     for (let file of files) {
       const img = await createImageFromFile(file);
-      
-      // SSD Detection (Best for any background)
       const detection = await faceapi
         .detectSingleFace(img)
         .withFaceLandmarks()
@@ -92,12 +89,18 @@ async function addMissingPerson() {
     }
 
     if (descriptors.length === 0) {
-      previewDiv.innerHTML = '<b style="color:red;">No face detected. Please use a clearer photo.</b>';
+      previewDiv.innerHTML = '<b style="color:red;">No face detected. Try a clearer photo.</b>';
       return;
     }
 
     const stored = loadStoredPeople();
-    stored.push({ name, email: ownerEmail, contact: contactName, descriptors });
+    // Save identifying data clearly
+    stored.push({ 
+        name: missingName, 
+        email: familyEmail, 
+        contact: familyContactName, 
+        descriptors 
+    });
     savePeople(stored);
     
     previewDiv.innerHTML = '<b style="color:green;">✅ Successfully added to database!</b>';
@@ -109,7 +112,7 @@ async function addMissingPerson() {
 
 /**
  * 4. CHECK FOUND PERSON
- * Scans the found photo and sends emails to both parties if it's a match.
+ * Compares found photo and triggers dual emails on match.
  */
 async function checkFoundPerson() {
   const finderEmail = document.getElementById('finder-email').value.trim();
@@ -121,7 +124,7 @@ async function checkFoundPerson() {
     return;
   }
 
-  resultDiv.innerHTML = "<b>Scanning photo for matches...</b>";
+  resultDiv.innerHTML = "<b>Searching for a match...</b>";
 
   try {
     const img = await createImageFromFile(file);
@@ -131,7 +134,7 @@ async function checkFoundPerson() {
       .withFaceDescriptor();
 
     if (!detection) {
-      resultDiv.innerHTML = '<b style="color:orange;">No face detected. Background might be too busy or face is hidden.</b>';
+      resultDiv.innerHTML = '<b style="color:orange;">No face detected. Ensure the face is visible.</b>';
       return;
     }
 
@@ -139,12 +142,17 @@ async function checkFoundPerson() {
     const stored = loadStoredPeople();
     let bestMatch = { distance: 1, name: null, email: null, contact: null };
 
-    // Compare face DNA against all records
+    // Find the closest match in the database
     stored.forEach(person => {
       person.descriptors.forEach(descArr => {
         const distance = faceapi.euclideanDistance(queryDescriptor, new Float32Array(descArr));
         if (distance < bestMatch.distance) {
-          bestMatch = { distance, name: person.name, email: person.email, contact: person.contact };
+          bestMatch = { 
+              distance, 
+              name: person.name, 
+              email: person.email, 
+              contact: person.contact 
+          };
         }
       });
     });
@@ -153,51 +161,51 @@ async function checkFoundPerson() {
       const confidence = ((1 - bestMatch.distance) * 100).toFixed(1);
       resultDiv.innerHTML = `<h3 style="color:green;">MATCH FOUND: ${bestMatch.name}</h3>
                              <p>Confidence: ${confidence}%</p>
-                             <p>Email alerts sent to both of you!</p>`;
+                             <p>Success! Contact details exchanged via email.</p>`;
       
       sendDualEmails(bestMatch, finderEmail);
     } else {
       const closest = ((1 - bestMatch.distance) * 100).toFixed(1);
-      resultDiv.innerHTML = `No match found in database. <br><small>(Closest profile similarity: ${closest}%)</small>`;
+      resultDiv.innerHTML = `No match found. <br><small>(Closest profile is a ${closest}% match)</small>`;
     }
   } catch (error) {
-    console.error('Check error:', error);
+    console.error('Matching error:', error);
     resultDiv.innerText = 'Error processing photo.';
   }
 }
 
 /**
- * 5. SEND DUAL EMAILS
+ * 5. SEND DUAL EMAILS (Fixed Names)
+ * Ensures the family and the finder get the correct information.
  */
 function sendDualEmails(match, finderEmail) {
   const serviceID = 'service_kebubpr';
   const templateID = 'template_0i301n8';
 
-  // Email to the person who reported them missing
+  // Email 1: To the Family (The person who reported them missing)
   const ownerParams = {
-    to_email: match.email,
-    contact_name: match.contact,
-    missing_name: match.name,
-    message: `A potential match for ${match.name} was found! Finder's email: ${finderEmail}`
+    to_email: match.email,            // Family Email
+    contact_name: match.contact,      // Family Name
+    missing_name: match.name,         // Missing Person's Name
+    message: `Great news! ${match.name} was found. You can contact the finder at: ${finderEmail}`
   };
 
-  // Email to the finder
+  // Email 2: To the Finder
   const finderParams = {
-    to_email: finderEmail,
-    contact_name: "Finder",
-    missing_name: match.name,
-    message: `You found a match for ${match.name}! Contact the family (${match.contact}) at: ${match.email}`
+    to_email: finderEmail,            // Finder Email
+    contact_name: "Finder",           // Generic
+    missing_name: match.name,         // Missing Person's Name
+    message: `You found a match for ${match.name}! You can contact the family (${match.contact}) at: ${match.email}`
   };
 
   Promise.all([
     emailjs.send(serviceID, templateID, ownerParams),
     emailjs.send(serviceID, templateID, finderParams)
   ]).then(() => {
-    console.log('Notifications sent to both parties.');
+    console.log('Emails sent to both parties.');
   }).catch((err) => {
-    console.error('Email error:', err);
+    console.error('EmailJS Error:', err);
   });
 }
 
-// Startup
 loadModels();
