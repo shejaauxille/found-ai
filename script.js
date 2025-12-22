@@ -18,12 +18,18 @@ function savePeople(people) {
 let model = null;
 async function loadModel() {
   if (!model) {
-    model = await Xenova.pipeline('feature-extraction', 'Xenova/resnet-50');
+    try {
+      model = await Xenova.pipeline('feature-extraction', 'Xenova/resnet-50');
+      console.log('Model loaded');
+    } catch (error) {
+      console.error('Model load failed:', error);
+      alert('Failed to load AI model. Refresh and try again.');
+    }
   }
   return model;
 }
 
-// Compute face embedding (simple version using average pooling)
+// Compute face embedding
 async function getEmbedding(image) {
   const model = await loadModel();
   const tensor = await Xenova.readImage(image);
@@ -44,6 +50,7 @@ async function addMissingPerson() {
   }
 
   try {
+    await loadModel(); // Ensure model is ready
     const embeddings = [];
     for (let file of files) {
       const img = await createImageFromFile(file);
@@ -57,7 +64,7 @@ async function addMissingPerson() {
     alert('Added successfully!');
   } catch (error) {
     console.error('Add error:', error);
-    alert('Error adding person.');
+    alert('Error adding person: ' + error.message);
   }
 }
 
@@ -81,6 +88,7 @@ async function checkFoundPerson() {
   }
 
   try {
+    await loadModel();
     const img = await createImageFromFile(file);
     const queryEmbedding = await getEmbedding(img);
 
@@ -100,10 +108,10 @@ async function checkFoundPerson() {
     const resultDiv = document.getElementById('result');
     if (bestMatch.similarity > similarityThreshold) {
       const match = stored.find(p => p.name === bestMatch.name);
-      resultDiv.innerText = `Match found: ${bestMatch.name} (similarity: ${bestMatch.similarity.toFixed(2)})!`;
+      resultDiv.innerText = `Match: ${bestMatch.name} (similarity: ${bestMatch.similarity.toFixed(2)})! Emails sent.`;
       sendEmail(match.email, match.contact, bestMatch.name, finderEmail);
     } else {
-      resultDiv.innerText = `No match found (best similarity: ${bestMatch.similarity.toFixed(2)}).`;
+      resultDiv.innerText = `No match (best similarity: ${bestMatch.similarity.toFixed(2)}).`;
     }
   } catch (error) {
     console.error('Check error:', error);
@@ -148,3 +156,6 @@ function sendEmail(toEmail, contactName, missingName, finderEmail) {
     .then(() => alert('Emails sent to both!'))
     .catch(err => alert('Email failed: ' + (err.text || err.message)));
 }
+
+// Load model on page load
+loadModel().catch(err => console.error('Initial model load failed:', err));
