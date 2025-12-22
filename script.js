@@ -1,29 +1,28 @@
-// Initialize EmailJS with your Public Key
+// Initialize EmailJS
 emailjs.init("OCug6QTCHUuWt7iCr");
 
-// Threshold for match (lower = stricter)
+// Threshold for match
 const threshold = 0.6;
 
-// Load models from your uploaded folder
+// Load models
 async function loadModels() {
   try {
     await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
     await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
     await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
-    console.log('Models loaded successfully!');
+    console.log('Models loaded!');
   } catch (error) {
     console.error('Model loading error:', error);
-    alert('Failed to load AI models. Refresh the page.');
+    alert('Failed to load AI models.');
   }
 }
 
-// Load stored people from localStorage
+// Load stored people
 function loadStoredPeople() {
   const data = localStorage.getItem('foundPeople');
   return data ? JSON.parse(data) : [];
 }
 
-// Save people to localStorage
 function savePeople(people) {
   localStorage.setItem('foundPeople', JSON.stringify(people));
 }
@@ -38,7 +37,7 @@ function createImageFromFile(file) {
   });
 }
 
-// Add missing person (store multiple photos/descriptors)
+// Add missing person with photo preview
 async function addMissingPerson() {
   const name = document.getElementById('name').value.trim();
   const email = document.getElementById('email').value.trim();
@@ -46,11 +45,24 @@ async function addMissingPerson() {
   const files = document.getElementById('missing-photo').files;
 
   if (!name || !email || files.length === 0) {
-    alert('Fill all fields and upload at least one photo.');
+    alert('Fill all fields and upload photos.');
     return;
   }
 
   try {
+    // Show preview
+    const previewDiv = document.getElementById('preview');
+    previewDiv.innerHTML = ''; // Clear old previews
+    for (let file of files) {
+      const imgUrl = URL.createObjectURL(file);
+      const img = document.createElement('img');
+      img.src = imgUrl;
+      img.style.width = '100px';
+      img.style.height = 'auto';
+      img.style.border = '1px solid #ccc';
+      previewDiv.appendChild(img);
+    }
+
     const descriptors = [];
     for (let file of files) {
       const img = await createImageFromFile(file);
@@ -60,13 +72,12 @@ async function addMissingPerson() {
       if (detection) {
         descriptors.push(Array.from(detection.descriptor));
       } else {
-        alert('No face detected in one photo. Try a clearer image.');
-        continue;
+        alert('No face detected in one photo.');
       }
     }
 
     if (descriptors.length === 0) {
-      alert('No valid faces detected in any photo.');
+      previewDiv.innerHTML = '<p>No valid faces detected.</p>';
       return;
     }
 
@@ -76,17 +87,17 @@ async function addMissingPerson() {
     alert('Missing person added successfully!');
   } catch (error) {
     console.error('Add error:', error);
-    alert('Error adding person: ' + (error.message || 'Unknown issue'));
+    alert('Error adding person: ' + error.message);
   }
 }
 
-// Check found person (compare to all stored missing people)
+// Check found person
 async function checkFoundPerson() {
   const finderEmail = document.getElementById('finder-email').value.trim();
   const file = document.getElementById('found-photo').files[0];
 
   if (!finderEmail || !file) {
-    alert('Fill finder email and upload a photo.');
+    alert('Fill finder email and upload photo.');
     return;
   }
 
@@ -97,7 +108,7 @@ async function checkFoundPerson() {
       .withFaceDescriptor();
 
     if (!detection) {
-      document.getElementById('result').innerText = 'No face detected in the found photo.';
+      document.getElementById('result').innerText = 'No face detected.';
       return;
     }
 
@@ -117,48 +128,40 @@ async function checkFoundPerson() {
 
     const resultDiv = document.getElementById('result');
     if (bestMatch.distance < threshold) {
-      resultDiv.innerText = `Match found: ${bestMatch.name} (confidence: ${(1 - bestMatch.distance).toFixed(2)})! Emails sent.`;
+      resultDiv.innerText = `Match found: ${bestMatch.name} (confidence: ${(1 - bestMatch.distance).toFixed(2)})!`;
       sendEmail(bestMatch.email, bestMatch.contact, bestMatch.name, finderEmail);
     } else {
       resultDiv.innerText = `No match found (best confidence: ${(1 - bestMatch.distance).toFixed(2)}).`;
     }
   } catch (error) {
     console.error('Check error:', error);
-    document.getElementById('result').innerText = 'Error checking: ' + (error.message || 'Unknown issue');
+    document.getElementById('result').innerText = 'Error – try again.';
   }
 }
 
 // Send email to both parties
-function sendEmail(missingEmail, missingContact, missingName, finderEmail) {
-  // Email to missing person's contact
+function sendEmail(toEmail, contactName, missingName, finderEmail) {
   const contactParams = {
-    to_email: missingEmail,
-    contact_name: missingContact || 'Contact',
+    to_email: toEmail,
+    contact_name: contactName,
     missing_name: missingName,
     message: `Your loved one ${missingName} has been found! Finder's email: ${finderEmail}`
   };
 
   emailjs.send('service_kebubpr', 'template_0i301n8', contactParams)
-    .then(() => console.log('Email to missing contact sent!'))
-    .catch(err => {
-      console.error('Email to contact failed:', err);
-      alert('Email to contact failed: ' + (err.text || err.message || 'Unknown error'));
-    });
+    .then(() => console.log('Email to contact sent!'))
+    .catch(err => alert('Email failed: ' + (err.text || err.message)));
 
-  // Email to finder
   const finderParams = {
     to_email: finderEmail,
-    contact_name: missingContact || 'Contact',
+    contact_name: contactName,
     missing_name: missingName,
-    message: `You found ${missingName}! Contact email: ${missingEmail}`
+    message: `You found ${missingName}! Contact email: ${toEmail}`
   };
 
   emailjs.send('service_kebubpr', 'template_0i301n8', finderParams)
-    .then(() => alert('Emails sent to both parties!'))
-    .catch(err => {
-      console.error('Email to finder failed:', err);
-      alert('Email to finder failed: ' + (err.text || err.message || 'Unknown error'));
-    });
+    .then(() => alert('Emails sent to both!'))
+    .catch(err => alert('Email failed: ' + (err.text || err.message)));
 }
 
 // Load models on page load
