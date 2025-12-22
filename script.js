@@ -26,8 +26,8 @@ async function faceppCall(endpoint, formData) {
   const response = await fetch(`${FACEPP_URL}${endpoint}`, { method: 'POST', body: formData });
   const data = await response.json();
   if (data.error_message) {
-    if (data.error_message.includes('already exists')) {
-      console.log('Faceset already exists, continuing...');
+    if (data.error_message.includes('already exists') || data.error_message.includes('FACESET_EXIST')) {
+      console.log('Faceset exists, continuing...');
       return { success: true };
     }
     throw new Error(data.error_message);
@@ -112,7 +112,7 @@ async function checkFoundPerson() {
       const bestMatch = searchData.results[0];
       if (bestMatch.confidence > matchThreshold) {
         const stored = loadStoredPeople();
-        const match = stored[0]; // For prototype, use first stored (improve later)
+        const match = stored[0]; // For prototype, use first stored
         document.getElementById('result').innerText = `Match found (${bestMatch.confidence}%)! Emails sent.`;
         sendEmail(match.email, match.contact, match.name, finderEmail);
         return;
