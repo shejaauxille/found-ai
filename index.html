@@ -2,28 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Found - AI Reuniter</title>
+  <title>Found - AI Face Comparison</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
 <body>
-  <h1>Found</h1>
-  <p>Help reunite loved ones using AI face matching.</p>
+  <h1>Found - AI Face Comparison</h1>
+  <p>Upload two photos to compare if they match (e.g., missing vs found person).</p>
   <section>
-    <h2>Submit Missing Person</h2>
-    <input type="text" id="name" placeholder="Missing Person's Name" required>
-    <input type="email" id="email" placeholder="Your Email (for notifications)" required>
-    <input type="text" id="contact" placeholder="Your Name">
-    <input type="file" id="missing-photo" accept="image/*" multiple required>
-    <button onclick="addMissingPerson()">Add Missing Person</button>
+    <h2>Missing Person Photo</h2>
+    <input type="text" id="missing-name" placeholder="Missing Person Name" required>
+    <input type="email" id="missing-email" placeholder="Missing Person Contact Email" required>
+    <input type="file" id="missing-photo" accept="image/*" required>
   </section>
   <section>
-    <h2>Check Found Person</h2>
-    <input type="email" id="finder-email" placeholder="Finder's Email (for notifications)" required>
+    <h2>Found Person Photo</h2>
+    <input type="email" id="finder-email" placeholder="Finder's Email" required>
     <input type="file" id="found-photo" accept="image/*" required>
-    <button onclick="checkFoundPerson()">Check for Match</button>
+    <button onclick="compareFaces()">Compare & Notify</button>
     <div id="result"></div>
   </section>
   <script src="script.js"></script>
