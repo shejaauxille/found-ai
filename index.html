@@ -12,21 +12,22 @@
   <h1>Found</h1>
   <p>Upload missing person photos to store, then check found photos for matches. Emails sent to both on match.</p>
   <section>
-    <h2>Submit Missing Person</h2>
-    <input type="text" id="name" placeholder="Missing Person Name" required>
-    <input type="email" id="email" placeholder="Contact Email" required>
-    <input type="text" id="contact" placeholder="Your Name">
-    <input type="file" id="missing-photo" accept="image/*" multiple required>
-    <button onclick="addMissingPerson()">Add Missing Person</button>
-    <div id="preview" style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px;"></div>
-  </section>
-  <section>
-    <h2>Check Found Person</h2>
-    <input type="email" id="finder-email" placeholder="Finder's Email" required>
-    <input type="file" id="found-photo" accept="image/*" required>
-    <button onclick="checkFoundPerson()">Check for Match</button>
-    <div id="result"></div>
-  </section>
+  <h2>Check Found Person</h2>
+  <div style="margin-bottom: 15px; background: #f4f4f4; padding: 10px; border-radius: 8px;">
+    <label for="sensitivity"><b>Matching Sensitivity:</b> <span id="sens-val">0.6</span></label><br>
+    <input type="range" id="sensitivity" min="0.2" max="0.8" step="0.05" value="0.6" 
+           oninput="document.getElementById('sens-val').innerText = this.value" style="width: 100%;">
+    <div style="display: flex; justify-content: space-between; font-size: 10px;">
+      <span>Strict (Identical Photos)</span>
+      <span>Relaxed (Different Backgrounds)</span>
+    </div>
+  </div>
+
+  <input type="email" id="finder-email" placeholder="Finder's Email" required>
+  <input type="file" id="found-photo" accept="image/*" required>
+  <button onclick="checkFoundPerson()">Check for Match</button>
+  <div id="result"></div>
+</section>
   <script src="script.js"></script>
 </body>
 </html>
