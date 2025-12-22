@@ -2,31 +2,130 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Found - AI Reuniter</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="styles.css">
+  
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f0f2f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+      margin: 0;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      width: 100%;
+      max-width: 650px;
+      padding: 30px;
+      margin-bottom: 30px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    h2 {
+      text-align: center;
+      font-size: 24px;
+      margin-bottom: 25px;
+      color: #000;
+    }
+
+    input[type="text"],
+    input[type="email"] {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border: 1px solid #888;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+
+    input:focus {
+      outline: none;
+      border: 2px solid #0066ff;
+    }
+
+    input[type="file"] {
+      margin-bottom: 20px;
+      font-size: 13px;
+    }
+
+    button {
+      width: 100%;
+      background-color: #0066ff;
+      color: white;
+      padding: 14px;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background-color: #0052cc;
+    }
+
+    .status-msg {
+      margin-top: 15px;
+      font-weight: bold;
+      font-size: 14px;
+      color: #000;
+    }
+
+    #preview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    #preview img {
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+  </style>
 </head>
 <body>
-  <h1>Found</h1>
-  <p>Upload missing person photos to store, then check found photos for matches. Emails sent to both on match.</p>
-  <section>
+
+  <div class="card">
     <h2>Submit Missing Person</h2>
-    <input type="text" id="name" placeholder="Missing Person Name" required>
-    <input type="email" id="email" placeholder="Contact Email" required>
+    
+    <input type="text" id="name" placeholder="Missing Person Name">
+    <input type="email" id="email" placeholder="Contact Email">
     <input type="text" id="contact" placeholder="Your Name">
-    <input type="file" id="missing-photo" accept="image/*" multiple required>
+    <input type="text" id="location" placeholder="Location (City/State)">
+    
+    <input type="file" id="missing-photo" accept="image/*" multiple>
+    
     <button onclick="addMissingPerson()">Add Missing Person</button>
-    <div id="preview" style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px;"></div>
-  </section>
-  <section>
+    
+    <div id="preview" class="status-msg"></div>
+  </div>
+
+  <div class="card">
     <h2>Check Found Person</h2>
-    <input type="email" id="finder-email" placeholder="Finder's Email" required>
-    <input type="file" id="found-photo" accept="image/*" required>
+    
+    <input type="email" id="finder-email" placeholder="Finder's Email">
+    
+    <input type="file" id="found-photo" accept="image/*">
+    
     <button onclick="checkFoundPerson()">Check for Match</button>
-    <div id="result"></div>
-  </section>
+    
+    <div id="result" class="status-msg"></div>
+  </div>
+
   <script src="script.js"></script>
 </body>
 </html>
