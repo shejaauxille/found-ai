@@ -1,0 +1,5 @@
+body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; text-align: center; }
+section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+input, button { margin: 10px; padding: 10px; width: 80%; }
+button { background: #007bff; color: white; border: none; cursor: pointer; }
+#result { margin-top: 20px; font-weight: bold; color: green; }
