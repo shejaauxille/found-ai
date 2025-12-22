@@ -119,7 +119,7 @@ async function checkFoundPerson() {
       const bestMatch = searchData.results[0];
       if (bestMatch.confidence > matchThreshold) {
         const stored = loadStoredPeople();
-        const match = stored[0]; // Prototype: use first stored (improve later if needed)
+        const match = stored[0]; // Prototype: use first stored
         document.getElementById('result').innerText = `Match found (${bestMatch.confidence}%)! Emails sent.`;
         sendEmail(match.email, match.contact, match.name, finderEmail);
         return;
@@ -132,7 +132,7 @@ async function checkFoundPerson() {
   }
 }
 
-// Send email to both parties (fixed to use separate params)
+// Send email to both parties
 function sendEmail(toEmail, contactName, missingName, finderEmail) {
   // Email to missing person's contact
   const contactParams = {
