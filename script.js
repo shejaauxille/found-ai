@@ -26,7 +26,9 @@ function savePeople(people) {
 async function faceppCall(endpoint, formData) {
   formData.append('api_key', FACEPP_API_KEY);
   formData.append('api_secret', FACEPP_API_SECRET);
-  const response = await fetch(`${FACEPP_URL}${endpoint}`, { method: 'POST', body: formData });
+  const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+  const fullUrl = `${proxyUrl}${FACEPP_URL}${endpoint}`;
+  const response = await fetch(fullUrl, { method: 'POST', body: formData });
   const data = await response.json();
   if (data.error_message) {
     if (data.error_message.includes('already exists') || data.error_message.includes('FACESET_EXIST')) {
