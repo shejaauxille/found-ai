@@ -27,10 +27,12 @@
   </section>
   <script src="script.js"></script>
   <script>
-    // Add event listeners (safer than onclick)
+    // Add event listeners
     document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('add-button').addEventListener('click', addMissingPerson);
-      document.getElementById('check-button').addEventListener('click', checkFoundPerson);
+      const addBtn = document.getElementById('add-button');
+      const checkBtn = document.getElementById('check-button');
+      if (addBtn) addBtn.addEventListener('click', addMissingPerson);
+      if (checkBtn) checkBtn.addEventListener('click', checkFoundPerson);
     });
   </script>
 </body>
