@@ -1,18 +1,10 @@
-// Initialize EmailJS with your Public Key
+// Initialize EmailJS
 emailjs.init("OCug6QTCHUuWt7iCr");
 
-// Face++ API details
-const FACEPP_API_KEY = 'TbeANjMZ3Lnw0B1GZi83Xwei-jgahnXU';
-const FACEPP_API_SECRET = 'KHyZoOB3lnmq_lwkz7l9eLr8acnGqVA_';
-const FACEPP_URL = 'https://api-us.faceplusplus.com/facepp/v3/';
+// Threshold for match (lower = stricter)
+const similarityThreshold = 0.6;
 
-// Faceset outer_id
-const FACESET_OUTER_ID = 'found_faceset';
-
-// Threshold for match
-const matchThreshold = 70;
-
-// Load stored contacts
+// Load stored people
 function loadStoredPeople() {
   const data = localStorage.getItem('foundPeople');
   return data ? JSON.parse(data) : [];
@@ -22,22 +14,21 @@ function savePeople(people) {
   localStorage.setItem('foundPeople', JSON.stringify(people));
 }
 
-// API call wrapper with CORS proxy
-async function faceppCall(endpoint, formData) {
-  formData.append('api_key', FACEPP_API_KEY);
-  formData.append('api_secret', FACEPP_API_SECRET);
-  const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-  const fullUrl = `${proxyUrl}${FACEPP_URL}${endpoint}`;
-  const response = await fetch(fullUrl, { method: 'POST', body: formData });
-  const data = await response.json();
-  if (data.error_message) {
-    if (data.error_message.includes('already exists') || data.error_message.includes('FACESET_EXIST')) {
-      console.log('Faceset exists, continuing...');
-      return { success: true };
-    }
-    throw new Error(data.error_message);
+// Load model (runs in browser)
+let model = null;
+async function loadModel() {
+  if (!model) {
+    model = await Xenova.pipeline('feature-extraction', 'Xenova/resnet-50');
   }
-  return data;
+  return model;
+}
+
+// Compute face embedding (simple version using average pooling)
+async function getEmbedding(image) {
+  const model = await loadModel();
+  const tensor = await Xenova.readImage(image);
+  const output = await model(tensor, { pooling: 'mean', normalize: true });
+  return output.data;
 }
 
 // Add missing person
@@ -53,40 +44,30 @@ async function addMissingPerson() {
   }
 
   try {
-    let formData = new FormData();
-    formData.append('outer_id', FACESET_OUTER_ID);
-    await faceppCall('faceset/create', formData);
-
-    const faceTokens = [];
+    const embeddings = [];
     for (let file of files) {
-      formData = new FormData();
-      formData.append('image_file', file);
-      const detectData = await faceppCall('detect', formData);
-      if (detectData.faces && detectData.faces.length > 0) {
-        faceTokens.push(detectData.faces[0].face_token);
-      } else {
-        alert('No face detected in photo.');
-      }
+      const img = await createImageFromFile(file);
+      const embedding = await getEmbedding(img);
+      embeddings.push(Array.from(embedding));
     }
-
-    if (faceTokens.length === 0) {
-      alert('No valid faces.');
-      return;
-    }
-
-    formData = new FormData();
-    formData.append('outer_id', FACESET_OUTER_ID);
-    formData.append('face_tokens', faceTokens.join(','));
-    await faceppCall('faceset/addface', formData);
 
     const stored = loadStoredPeople();
-    stored.push({ name, email, contact });
+    stored.push({ name, email, contact, embeddings });
     savePeople(stored);
-    alert('Added!');
+    alert('Added successfully!');
   } catch (error) {
     console.error('Add error:', error);
-    alert('Error: ' + error.message);
+    alert('Error adding person.');
   }
+}
+
+// Helper: Create image from file
+function createImageFromFile(file) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.src = URL.createObjectURL(file);
+  });
 }
 
 // Check found person
@@ -100,40 +81,51 @@ async function checkFoundPerson() {
   }
 
   try {
-    let formData = new FormData();
-    formData.append('image_file', file);
-    const detectData = await faceppCall('detect', formData);
-    if (detectData.faces.length === 0) {
-      alert('No face detected.');
-      return;
-    }
-    const faceToken = detectData.faces[0].face_token;
+    const img = await createImageFromFile(file);
+    const queryEmbedding = await getEmbedding(img);
 
-    formData = new FormData();
-    formData.append('face_token', faceToken);
-    formData.append('outer_id', FACESET_OUTER_ID);
-    const searchData = await faceppCall('search', formData);
+    const stored = loadStoredPeople();
+    let bestMatch = { similarity: 0, name: null };
 
-    if (searchData.results && searchData.results.length > 0) {
-      const bestMatch = searchData.results[0];
-      if (bestMatch.confidence > matchThreshold) {
-        const stored = loadStoredPeople();
-        const match = stored[0]; // Prototype: use first stored
-        document.getElementById('result').innerText = `Match found (${bestMatch.confidence}%)! Emails sent.`;
-        sendEmail(match.email, match.contact, match.name, finderEmail);
-        return;
-      }
+    stored.forEach(person => {
+      person.embeddings.forEach(embedArr => {
+        const embed = new Float32Array(embedArr);
+        const similarity = cosineSimilarity(queryEmbedding, embed);
+        if (similarity > bestMatch.similarity) {
+          bestMatch = { similarity, name: person.name };
+        }
+      });
+    });
+
+    const resultDiv = document.getElementById('result');
+    if (bestMatch.similarity > similarityThreshold) {
+      const match = stored.find(p => p.name === bestMatch.name);
+      resultDiv.innerText = `Match found: ${bestMatch.name} (similarity: ${bestMatch.similarity.toFixed(2)})!`;
+      sendEmail(match.email, match.contact, bestMatch.name, finderEmail);
+    } else {
+      resultDiv.innerText = `No match found (best similarity: ${bestMatch.similarity.toFixed(2)}).`;
     }
-    document.getElementById('result').innerText = 'No match.';
   } catch (error) {
     console.error('Check error:', error);
-    document.getElementById('result').innerText = 'Error: ' + error.message;
+    document.getElementById('result').innerText = 'Error – try again.';
   }
 }
 
-// Send email to both parties
+// Cosine similarity
+function cosineSimilarity(a, b) {
+  let dot = 0;
+  let magA = 0;
+  let magB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    magA += a[i] * a[i];
+    magB += b[i] * b[i];
+  }
+  return dot / (Math.sqrt(magA) * Math.sqrt(magB));
+}
+
+// Send email to both
 function sendEmail(toEmail, contactName, missingName, finderEmail) {
-  // Email to missing person's contact
   const contactParams = {
     to_email: toEmail,
     contact_name: contactName,
@@ -142,13 +134,9 @@ function sendEmail(toEmail, contactName, missingName, finderEmail) {
   };
 
   emailjs.send('service_kebubpr', 'template_0i301n8', contactParams)
-    .then(() => console.log('Email to missing person's contact sent!'))
-    .catch(err => {
-      console.error('Email to contact failed:', err);
-      alert('Email to contact failed: ' + (err.text || err.message || 'Unknown error'));
-    });
+    .then(() => console.log('Email to contact sent!'))
+    .catch(err => alert('Email failed: ' + (err.text || err.message)));
 
-  // Email to finder
   const finderParams = {
     to_email: finderEmail,
     contact_name: contactName,
@@ -157,9 +145,6 @@ function sendEmail(toEmail, contactName, missingName, finderEmail) {
   };
 
   emailjs.send('service_kebubpr', 'template_0i301n8', finderParams)
-    .then(() => alert('Emails sent to both parties!'))
-    .catch(err => {
-      console.error('Email to finder failed:', err);
-      alert('Email to finder failed: ' + (err.text || err.message || 'Unknown error'));
-    });
+    .then(() => alert('Emails sent to both!'))
+    .catch(err => alert('Email failed: ' + (err.text || err.message)));
 }
