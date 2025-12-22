@@ -132,9 +132,9 @@ async function checkFoundPerson() {
   }
 }
 
-// Send email to both parties (fixed to use separate params and correct messages)
+// Send email to both parties (fixed to use separate params)
 function sendEmail(toEmail, contactName, missingName, finderEmail) {
-  // Email to the missing person's contact
+  // Email to missing person's contact
   const contactParams = {
     to_email: toEmail,
     contact_name: contactName,
@@ -149,10 +149,10 @@ function sendEmail(toEmail, contactName, missingName, finderEmail) {
       alert('Email to contact failed: ' + (err.text || err.message || 'Unknown error'));
     });
 
-  // Email to the finder
+  // Email to finder
   const finderParams = {
     to_email: finderEmail,
-    contact_name: contactName,  // Optional, or change to "Finder"
+    contact_name: contactName,
     missing_name: missingName,
     message: `You found ${missingName}! Contact email: ${toEmail}`
   };
