@@ -3,3 +3,4 @@ section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; border-radius: 
 input, button { margin: 10px; padding: 10px; width: 80%; }
 button { background: #007bff; color: white; border: none; cursor: pointer; }
 #result { margin-top: 20px; font-weight: bold; color: green; }
+#preview img { width: 100px; height: auto; border: 1px solid #ccc; }
