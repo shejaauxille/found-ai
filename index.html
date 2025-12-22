@@ -11,7 +11,6 @@
   <style>
     :root {
       --bg: #0b0f1a;
-      --bg-soft: #11162a;
       --card: rgba(255,255,255,0.06);
       --border: rgba(255,255,255,0.12);
       --text: #eaeaf0;
@@ -23,123 +22,59 @@
     }
 
     * { box-sizing: border-box; scroll-behavior: smooth; }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: Inter, system-ui, sans-serif;
-      background: radial-gradient(800px 400px at top, #16204a33, transparent), var(--bg);
-      color: var(--text);
-      display: flex;
-      justify-content: center;
-    }
-
+    body { margin: 0; min-height: 100vh; font-family: Inter, sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; }
     .container { width: 100%; max-width: 900px; padding: 50px 20px; }
-
     header { text-align: center; margin-bottom: 50px; }
-    header h1 {
-      font-size: 3rem;
-      margin: 0;
-      background: var(--gradient);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
+    header h1 { font-size: 3rem; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    
+    .selection-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 40px; }
+    .choice-card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 35px; text-align: center; cursor: pointer; transition: 0.3s; }
+    .choice-card:hover { transform: translateY(-5px); background: rgba(255,255,255,0.1); }
+    .choice-card.active { border-color: var(--blue); box-shadow: 0 0 15px rgba(79, 124, 255, 0.3); }
+    .icon { font-size: 40px; margin-bottom: 10px; }
 
-    .selection-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 24px;
-      margin-bottom: 40px;
-    }
-
-    .choice-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 35px 25px;
-      text-align: center;
-      cursor: pointer;
-      backdrop-filter: blur(14px);
-      transition: all .35s ease;
-    }
-
-    .choice-card:hover { transform: translateY(-6px); box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
-    .choice-card.active { border-color: var(--blue); background: rgba(79, 124, 255, 0.1); }
-    .choice-card .icon { font-size: 44px; margin-bottom: 12px; }
-
-    .form-container {
-      display: none;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 22px;
-      padding: 40px;
-      backdrop-filter: blur(18px);
-      animation: fadeUp .4s ease;
-      margin-top: 20px;
-    }
-
-    @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-    .input-group { margin-bottom: 22px; }
-    label { display: block; margin-bottom: 8px; font-size: .85rem; color: var(--muted); }
-
-    input[type="text"], input[type="email"] {
-      width: 100%; padding: 15px; border-radius: 12px; border: 1px solid var(--border);
-      background: #0d1328; color: var(--text); font-size: 1rem;
-    }
-
-    .file-input-wrapper { border: 2px dashed #4f7cff55; padding: 25px; border-radius: 14px; text-align: center; background: #0d1328; }
-
-    button { width: 100%; padding: 16px; border-radius: 14px; border: none; font-size: 1.05rem; font-weight: 600; cursor: pointer; transition: 0.3s; }
+    .form-container { display: none; background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 40px; margin-top: 20px; }
+    .input-group { margin-bottom: 20px; }
+    label { display: block; margin-bottom: 8px; font-size: 0.85rem; color: var(--muted); }
+    input { width: 100%; padding: 15px; border-radius: 12px; border: 1px solid var(--border); background: #0d1328; color: white; }
+    
+    button { width: 100%; padding: 16px; border-radius: 14px; border: none; font-weight: 600; cursor: pointer; margin-top: 10px; }
     .btn-missing { background: linear-gradient(135deg, #4f7cff, #9b7bff); color: white; }
     .btn-found { background: linear-gradient(135deg, #27ff9b, #18c27a); color: #04150e; }
 
-    #status, #result { margin-top: 20px; padding: 15px; border-radius: 12px; background: #0d1328; border: 1px solid var(--border); text-align: center; }
+    #status, #result { margin-top: 20px; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid var(--border); }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <header>
-    <h1>Found</h1>
-    <p>Using AI to reunite families, faster and safer.</p>
-  </header>
+  <header><h1>Found</h1><p>AI-powered reunification system</p></header>
 
   <div class="selection-grid">
     <div class="choice-card" id="btn-show-missing" onclick="toggleForm('missing')">
-      <div class="icon">🔍</div>
-      <h3>Report Missing</h3>
-      <p>I am searching for someone</p>
+      <div class="icon">🔍</div><h3>Report Missing</h3><p>Searching for someone</p>
     </div>
     <div class="choice-card" id="btn-show-found" onclick="toggleForm('found')">
-      <div class="icon">🤝</div>
-      <h3>Report Found</h3>
-      <p>I have found someone</p>
+      <div class="icon">🤝</div><h3>Report Found</h3><p>Found someone</p>
     </div>
   </div>
 
   <div id="form-missing" class="form-container">
     <h2>Register Missing Person</h2>
-    <div class="input-group"><label>Missing Person's Name</label><input type="text" id="name"></div>
-    <div class="input-group"><label>Your Name (Family Contact)</label><input type="text" id="contact"></div>
-    <div class="input-group"><label>Your Email</label><input type="email" id="email"></div>
-    <div class="input-group"><label>Home Location</label><input type="text" id="location"></div>
-    <div class="input-group">
-      <label>Photos</label>
-      <div class="file-input-wrapper"><input type="file" id="missing-photo" accept="image/*" multiple></div>
-    </div>
-    <button class="btn-missing" onclick="addMissingPerson()">Register in Database</button>
+    <div class="input-group"><label>Name</label><input type="text" id="name"></div>
+    <div class="input-group"><label>Family Contact Name</label><input type="text" id="contact"></div>
+    <div class="input-group"><label>Family Email</label><input type="email" id="email"></div>
+    <div class="input-group"><label>Location</label><input type="text" id="location"></div>
+    <div class="input-group"><label>Photos</label><input type="file" id="missing-photo" multiple></div>
+    <button class="btn-missing" onclick="addMissingPerson()">Register Person</button>
     <div id="status"></div>
   </div>
 
   <div id="form-found" class="form-container">
-    <h2>Report Someone Found</h2>
-    <div class="input-group"><label>Your Email</label><input type="email" id="finder-email"></div>
-    <div class="input-group">
-      <label>Upload Photo</label>
-      <div class="file-input-wrapper"><input type="file" id="found-photo" accept="image/*"></div>
-    </div>
-    <button class="btn-found" onclick="checkFoundPerson()">Scan for a Match</button>
+    <h2>Report Found Person</h2>
+    <div class="input-group"><label>Your Email (Finder)</label><input type="email" id="finder-email"></div>
+    <div class="input-group"><label>Person's Photo</label><input type="file" id="found-photo"></div>
+    <button class="btn-found" onclick="checkFoundPerson()">Scan for Match</button>
     <div id="result"></div>
   </div>
 </div>
@@ -147,22 +82,15 @@
 <script src="script.js"></script>
 <script>
   function toggleForm(type) {
-    const missingForm = document.getElementById('form-missing');
-    const foundForm = document.getElementById('form-found');
-    
-    missingForm.style.display = 'none';
-    foundForm.style.display = 'none';
+    document.getElementById('form-missing').style.display = 'none';
+    document.getElementById('form-found').style.display = 'none';
     document.getElementById('btn-show-missing').classList.remove('active');
     document.getElementById('btn-show-found').classList.remove('active');
 
-    const targetForm = type === 'missing' ? missingForm : foundForm;
-    const targetBtn = type === 'missing' ? document.getElementById('btn-show-missing') : document.getElementById('btn-show-found');
-
-    targetForm.style.display = 'block';
-    targetBtn.classList.add('active');
-
-    // Smooth Scroll to the form
-    targetForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const form = document.getElementById('form-' + type);
+    form.style.display = 'block';
+    document.getElementById('btn-show-' + type).classList.add('active');
+    form.scrollIntoView({ behavior: 'smooth' });
   }
 </script>
 </body>
