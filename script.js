@@ -1,4 +1,4 @@
-// Initialize EmailJS
+// Initialize EmailJS with your Public Key
 emailjs.init("OCug6QTCHUuWt7iCr");
 
 // Face++ API details
@@ -9,8 +9,10 @@ const FACEPP_URL = 'https://api-us.faceplusplus.com/facepp/v3/';
 // Faceset outer_id
 const FACESET_OUTER_ID = 'found_faceset';
 
+// Threshold for match
 const matchThreshold = 70;
 
+// Load stored contacts
 function loadStoredPeople() {
   const data = localStorage.getItem('foundPeople');
   return data ? JSON.parse(data) : [];
@@ -20,6 +22,7 @@ function savePeople(people) {
   localStorage.setItem('foundPeople', JSON.stringify(people));
 }
 
+// API call wrapper
 async function faceppCall(endpoint, formData) {
   formData.append('api_key', FACEPP_API_KEY);
   formData.append('api_secret', FACEPP_API_SECRET);
@@ -35,6 +38,7 @@ async function faceppCall(endpoint, formData) {
   return data;
 }
 
+// Add missing person
 async function addMissingPerson() {
   const name = document.getElementById('name').value.trim();
   const email = document.getElementById('email').value.trim();
@@ -84,6 +88,7 @@ async function addMissingPerson() {
   }
 }
 
+// Check found person
 async function checkFoundPerson() {
   const finderEmail = document.getElementById('finder-email').value.trim();
   const file = document.getElementById('found-photo').files[0];
@@ -112,7 +117,7 @@ async function checkFoundPerson() {
       const bestMatch = searchData.results[0];
       if (bestMatch.confidence > matchThreshold) {
         const stored = loadStoredPeople();
-        const match = stored[0]; // For prototype, use first stored
+        const match = stored[0]; // Prototype: use first stored (improve later)
         document.getElementById('result').innerText = `Match found (${bestMatch.confidence}%)! Emails sent.`;
         sendEmail(match.email, match.contact, match.name, finderEmail);
         return;
@@ -125,20 +130,29 @@ async function checkFoundPerson() {
   }
 }
 
+// Send email to both parties
 function sendEmail(toEmail, contactName, missingName, finderEmail) {
   const params = {
+    to_email: toEmail,
     contact_name: contactName,
     missing_name: missingName,
     message: `Your loved one ${missingName} has been found! Finder's email: ${finderEmail}`
   };
 
-  params.to_email = toEmail;
-  emailjs.send('service_9tjachj', 'template_0i301n8', params)
-    .then(() => console.log('Email to contact sent.'));
+  emailjs.send('service_kebubpr', 'template_0i301n8', params)
+    .then(() => console.log('Email to contact sent successfully!'))
+    .catch(err => {
+      console.error('Email to contact failed:', err);
+      alert('Email failed: ' + (err.text || err.message || 'Unknown error - check EmailJS dashboard'));
+    });
 
+  // Send to finder
   params.to_email = finderEmail;
   params.message = `You found ${missingName}! Contact email: ${toEmail}`;
-  emailjs.send('service_9tjachj', 'template_0i301n8', params)
+  emailjs.send('service_kebubpr', 'template_0i301n8', params)
     .then(() => alert('Emails sent to both!'))
-    .catch(err => alert('Email failed: ' + err));
+    .catch(err => {
+      console.error('Email to finder failed:', err);
+      alert('Email failed: ' + (err.text || err.message || 'Unknown error'));
+    });
 }
