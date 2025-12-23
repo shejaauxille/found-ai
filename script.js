@@ -25,11 +25,12 @@ async function addMissingPerson() {
   const status = document.getElementById('status');
   const name = document.getElementById('name').value.trim();
   const email = document.getElementById('email').value.trim();
+  const phone = document.getElementById('phone').value.trim();
   const contact = document.getElementById('contact').value.trim();
   const location = document.getElementById('location').value.trim();
   const files = document.getElementById('missing-photo').files;
 
-  if (!name || !email || files.length === 0) {
+  if (!name || !email || !phone || files.length === 0) {
     status.innerHTML = `<span style="color: #ff4f4f">⚠️ Please fill all fields and select photos.</span>`;
     return;
   }
@@ -39,7 +40,6 @@ async function addMissingPerson() {
   try {
     const descriptors = [];
     for (let file of files) {
-      const reader = new FileReader();
       const img = await faceapi.bufferToImage(file);
       const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
       
@@ -54,7 +54,7 @@ async function addMissingPerson() {
     }
 
     const stored = JSON.parse(localStorage.getItem('foundPeople') || '[]');
-    stored.push({ name, email, contact, location, descriptors });
+    stored.push({ name, email, phone, contact, location, descriptors });
     localStorage.setItem('foundPeople', JSON.stringify(stored));
 
     status.innerHTML = `<span style="color: var(--green)">✅ Success! ${name} is now in the secure database.</span>`;
@@ -69,10 +69,11 @@ async function addMissingPerson() {
 async function checkFoundPerson() {
   const result = document.getElementById('result');
   const finderEmail = document.getElementById('finder-email').value.trim();
+  const finderPhone = document.getElementById('finder-phone').value.trim();
   const file = document.getElementById('found-photo').files[0];
 
-  if (!finderEmail || !file) {
-    result.innerHTML = `<span style="color: #ff4f4f">⚠️ Email and photo are required.</span>`;
+  if (!finderEmail || !finderPhone || !file) {
+    result.innerHTML = `<span style="color: #ff4f4f">⚠️ Email, Phone, and photo are required.</span>`;
     return;
   }
 
@@ -101,7 +102,6 @@ async function checkFoundPerson() {
     });
 
     if (bestMatch.distance < threshold) {
-      // Calculate Accuracy: 1.0 (no match) to 0.0 (identical)
       const accuracy = ((1 - bestMatch.distance) * 100).toFixed(1);
       
       result.innerHTML = `
@@ -110,7 +110,7 @@ async function checkFoundPerson() {
           <small>Accuracy: ${accuracy}% - Sending alerts now...</small>
         </div>`;
       
-      sendDualEmails(bestMatch.person, finderEmail, accuracy);
+      sendDualEmails(bestMatch.person, finderEmail, finderPhone, accuracy);
     } else {
       result.innerHTML = `<span style="color: var(--muted)">🔍 No match found. We will keep this on record.</span>`;
     }
@@ -122,7 +122,7 @@ async function checkFoundPerson() {
 /**
  * EMAIL EXCHANGE
  */
-function sendDualEmails(match, finderEmail, accuracy) {
+function sendDualEmails(match, finderEmail, finderPhone, accuracy) {
   const serviceID = 'service_kebubpr';
   const templateID = 'template_0i301n8';
 
@@ -131,7 +131,7 @@ function sendDualEmails(match, finderEmail, accuracy) {
     to_email: match.email,
     contact_name: match.contact,
     missing_name: match.name,
-    message: `GREAT NEWS: ${match.name} was spotted with ${accuracy}% accuracy. Please contact the finder at: ${finderEmail}`
+    message: `GREAT NEWS: ${match.name} was spotted with ${accuracy}% accuracy. Please contact the finder: ${finderEmail} | Phone: ${finderPhone}`
   };
 
   // Email to Finder
@@ -139,15 +139,15 @@ function sendDualEmails(match, finderEmail, accuracy) {
     to_email: finderEmail,
     contact_name: "Hero Finder",
     missing_name: match.name,
-    message: `MATCH CONFIRMED: You found ${match.name} (${accuracy}% accuracy). This person is from ${match.location}. Please contact the family (${match.contact}) at: ${match.email}`
+    message: `MATCH CONFIRMED: You found ${match.name} (${accuracy}% accuracy). Contact Family (${match.contact}): ${match.email} | Phone: ${match.phone}`
   };
 
   Promise.all([
     emailjs.send(serviceID, templateID, ownerParams),
     emailjs.send(serviceID, templateID, finderParams)
   ]).then(() => {
-    alert('Match confirmed! Contact details have been exchanged via email.');
+    alert('Match confirmed! Contact details and phone numbers have been exchanged via email.');
   }).catch(err => {
     console.error('Email Error:', err);
   });
-} 
+}
