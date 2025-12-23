@@ -10,115 +10,105 @@ emailjs.init("OCug6QTCHUuWt7iCr");
 const threshold = 0.6;
 const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 
-// Load AI Models
 async function loadModels() {
-    try {
-        await Promise.all([
-            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ]);
-        console.log("AI & Gemini Systems Online");
-    } catch (err) {
-        console.error("Model Loading Error:", err);
-    }
+    console.log("Loading AI Models...");
+    await Promise.all([
+        faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+    ]);
+    console.log("AI & Gemini Systems Online");
 }
 loadModels();
 
 /**
- * 2. REGISTRATION LOGIC (The missing function!)
- * This saves the person's face data into the browser's memory.
+ * 2. REGISTRATION WITH UI FEEDBACK
  */
 async function addMissingPerson() {
     const status = document.getElementById('status');
+    const btn = document.querySelector("button[onclick='addMissingPerson()']");
+    
     const name = document.getElementById('name').value.trim();
     const email = document.getElementById('email').value.trim();
-    const contact = document.getElementById('contact').value.trim();
     const files = document.getElementById('missing-photo').files;
 
     if (!name || !email || files.length === 0) {
-        status.innerHTML = `<span style="color: #ff4f4f">⚠️ Please fill all fields and select a photo.</span>`;
+        status.innerHTML = `<b style="color: #ff4f4f">⚠️ Fill all fields & add photo!</b>`;
         return;
     }
 
-    status.innerHTML = `<span style="color: var(--purple)">🤖 Processing face data...</span>`;
+    // INTERFACE CHANGE: Disable button and show loading
+    btn.disabled = true;
+    btn.innerText = "⌛ Detecting Face...";
+    status.innerHTML = `<span style="color: #3498db">🔵 Extracting facial features...</span>`;
 
     try {
         const descriptors = [];
         for (let file of files) {
             const img = await faceapi.bufferToImage(file);
             const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
-            if (detection) {
-                descriptors.push(Array.from(detection.descriptor));
-            }
+            if (detection) descriptors.push(Array.from(detection.descriptor));
         }
 
         if (descriptors.length === 0) {
-            status.innerHTML = `<span style="color: #ff4f4f">❌ No face detected. Use a clearer photo.</span>`;
-            return;
+            throw new Error("No face found in photo.");
         }
 
-        // Save to LocalStorage
         const stored = JSON.parse(localStorage.getItem('foundPeople') || '[]');
-        stored.push({ name, email, contact, descriptors });
+        stored.push({ name, email, descriptors });
         localStorage.setItem('foundPeople', JSON.stringify(stored));
 
-        status.innerHTML = `<span style="color: var(--green)">✅ Registered Successfully!</span>`;
-        document.getElementById('name').value = ''; // Clear fields
+        // SUCCESS FEEDBACK
+        status.innerHTML = `<b style="color: #27ae60">✅ Registered Successfully!</b>`;
+        document.getElementById('name').value = '';
     } catch (e) {
-        status.innerHTML = `<span style="color: #ff4f4f">❌ Error: ${e.message}</span>`;
+        status.innerHTML = `<b style="color: #e74c3c">❌ Error: ${e.message}</b>`;
+    } finally {
+        btn.disabled = false;
+        btn.innerText = "Register Person";
     }
 }
 
 /**
- * 3. GEMINI MULTIMODAL FEATURE: SMART EYEWITNESS
+ * 3. GEMINI ANALYSIS (SMART EYEWITNESS)
  */
 async function analyzeEnvironment(file) {
-    try {
-        const base64Data = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result.split(',')[1]);
-            reader.readAsDataURL(file);
-        });
+    const base64Data = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(',')[1]);
+        reader.readAsDataURL(file);
+    });
 
-        const prompt = `Analyze this photo taken by someone who found a missing person. 
-        Describe the environment to help the family find the location. 
-        Identify landmarks, store names, street signs, or unique background features. 
-        Describe the person's condition briefly. Keep it concise.`;
-
-        const result = await model.generateContent([
-            prompt,
-            { inlineData: { data: base64Data, mimeType: file.type } }
-        ]);
-        
-        return result.response.text();
-    } catch (error) {
-        console.error("Gemini Error:", error);
-        return "Environmental analysis unavailable.";
-    }
+    const prompt = `Identify the specific location/landmarks in this photo and the person's condition to help a search team.`;
+    const result = await model.generateContent([prompt, { inlineData: { data: base64Data, mimeType: file.type } }]);
+    return result.response.text();
 }
 
 /**
- * 4. SEARCHING & MATCHING LOGIC
+ * 4. SEARCHING WITH MULTIPLE UI CHANGES
  */
 async function checkFoundPerson() {
     const resultDiv = document.getElementById('result');
-    const finderEmail = document.getElementById('finder-email').value.trim();
+    const btn = document.querySelector("button[onclick='checkFoundPerson()']");
     const file = document.getElementById('found-photo').files[0];
+    const finderEmail = document.getElementById('finder-email').value.trim();
 
-    if (!finderEmail || !file) {
-        resultDiv.innerHTML = '<span style="color: #ff4f4f">⚠️ Provide your email and the found photo.</span>';
+    if (!file || !finderEmail) {
+        resultDiv.innerHTML = `<b style="color: #e74c3c">⚠️ Photo and Email required!</b>`;
         return;
     }
 
-    resultDiv.innerHTML = '<span style="color: var(--blue)">🤖 AI is searching for matches...</span>';
+    // INTERFACE CHANGE: Loading State
+    btn.disabled = true;
+    btn.innerText = "🔍 Scanning...";
+    resultDiv.innerHTML = `<div class="ai-loader">🤖 Identifying Person...</div>`;
 
     try {
         const img = await faceapi.bufferToImage(file);
         const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
 
         if (!detection) {
-            resultDiv.innerHTML = '<span style="color: orange">⚠️ No face found in this photo.</span>';
+            resultDiv.innerHTML = `<b style="color: orange">⚠️ No face detected. Try a clearer photo.</b>`;
             return;
         }
 
@@ -128,62 +118,42 @@ async function checkFoundPerson() {
         stored.forEach(person => {
             person.descriptors.forEach(descArr => {
                 const dist = faceapi.euclideanDistance(detection.descriptor, new Float32Array(descArr));
-                if (dist < bestMatch.distance) {
-                    bestMatch = { distance: dist, person: person };
-                }
+                if (dist < bestMatch.distance) bestMatch = { distance: dist, person: person };
             });
         });
 
         if (bestMatch.distance < threshold) {
-            const accuracy = ((1 - bestMatch.distance) * 100).toFixed(1);
+            // INTERFACE CHANGE: Show Gemini is working
+            resultDiv.innerHTML = `<div style="color: #8e44ad">🧠 Match Found! Gemini is identifying location...</div>`;
             
-            resultDiv.innerHTML = '<span style="color: var(--purple)">🧠 Identifying location with Gemini AI...</span>';
-            const envDescription = await analyzeEnvironment(file);
-            
-            const messageForEmails = `A match was found with ${accuracy}% accuracy.\n\nEYEWITNESS REPORT: ${envDescription}\n\nPlease contact the finder immediately at: ${finderEmail}`;
+            const envReport = await analyzeEnvironment(file);
+            await sendDualEmails(bestMatch.person, finderEmail, envReport);
 
-            await sendDualEmails(bestMatch.person, finderEmail, messageForEmails);
-            
+            // FINAL INTERFACE CHANGE: Success Card
             resultDiv.innerHTML = `
-                <div style="background: rgba(39, 255, 155, 0.1); padding: 15px; border-radius: 10px; border: 2px solid var(--green);">
-                    <h4 style="margin:0; color: var(--green);">🎉 Match Confirmed!</h4>
-                    <p style="font-size: 0.9rem; margin: 10px 0 0;">An AI-generated report and contact details have been sent to the family.</p>
+                <div style="border: 2px solid #2ecc71; background: #eafaf1; padding: 20px; border-radius: 12px; animation: slideUp 0.5s;">
+                    <h3 style="color: #27ae60; margin: 0;">🎉 Success!</h3>
+                    <p><b>${bestMatch.person.name}</b> identified. Emails sent to family and you.</p>
                 </div>`;
         } else {
-            resultDiv.innerHTML = '<span style="color: var(--muted)">🔍 No match found in our records.</span>';
+            resultDiv.innerHTML = `<b style="color: #7f8c8d">🔍 No match found in the system.</b>`;
         }
-    } catch (e) { 
-        resultDiv.innerHTML = "❌ Error: " + e.message; 
+    } catch (e) {
+        resultDiv.innerHTML = `<b style="color: #e74c3c">❌ Error: ${e.message}</b>`;
+    } finally {
+        btn.disabled = false;
+        btn.innerText = "Check Person";
     }
 }
 
-/**
- * 5. EMAIL LOGIC
- */
-async function sendDualEmails(match, finderEmail, finalMessage) {
-    const serviceID = 'service_kebubpr';
-    const templateID = 'template_0i301n8';
-
-    const ownerParams = {
-        to_email: match.email,
-        contact_name: match.contact,
-        missing_name: match.name,
-        message: finalMessage
-    };
-
-    const finderParams = {
-        to_email: finderEmail,
-        contact_name: "Hero Finder",
-        missing_name: match.name,
-        message: `System matched ${match.name}. The family has been notified. Contact the family at: ${match.email}`
-    };
-
+// 5. EMAIL SYSTEM
+async function sendDualEmails(match, finderEmail, report) {
+    const msg = `Match confirmed! Location Report: ${report}. Contact finder: ${finderEmail}`;
     return Promise.all([
-        emailjs.send(serviceID, templateID, ownerParams),
-        emailjs.send(serviceID, templateID, finderParams)
+        emailjs.send('service_kebubpr', 'template_0i301n8', { to_email: match.email, message: msg }),
+        emailjs.send('service_kebubpr', 'template_0i301n8', { to_email: finderEmail, message: `Match found for ${match.name}.` })
     ]);
 }
 
-// 6. EXPOSE FUNCTIONS TO BUTTONS
 window.addMissingPerson = addMissingPerson;
 window.checkFoundPerson = checkFoundPerson;
