@@ -81,7 +81,16 @@
   </div>
 </div>
 
-<script src="script.js"></script>
+<script type="importmap">
+  {
+    "imports": {
+      "@google/generative-ai": "https://esm.run/@google/generative-ai"
+    }
+  }
+</script>
+
+<script type="module" src="script.js"></script>
+
 <script>
   function toggleForm(type) {
     document.getElementById('form-missing').style.display = 'none';
