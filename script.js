@@ -1,14 +1,10 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const API_KEY = "AIzaSyCXjwe_OGpcaEni5Zyctvw9ooclpwLQXU0";
-const genAI = new GoogleGenerativeAI(API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
+// Initialize EmailJS
 emailjs.init("OCug6QTCHUuWt7iCr");
 
 const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 const threshold = 0.6;
 
+// Load Face-API models
 async function loadModels() {
     try {
         await Promise.all([
@@ -17,67 +13,42 @@ async function loadModels() {
             faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ]);
         console.log("AI Models Ready");
-    } catch (e) { console.error("Face-API Error:", e); }
+    } catch (e) { 
+        console.error("Face-API Loading Error:", e); 
+    }
 }
 loadModels();
 
 /**
- * GEMINI SCAN: LANDMARKS & ENVIRONMENT
- */
-async function analyzeEnvironment(file) {
-    const logDiv = document.getElementById('live-ai-log');
-    logDiv.style.display = "block";
-    logDiv.innerHTML = "🤖 Gemini is scanning for Rwanda landmarks...";
-
-    try {
-        const base64Data = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result.split(',')[1]);
-            reader.readAsDataURL(file);
-        });
-
-        const result = await model.generateContent({
-            contents: [{
-                role: 'user',
-                parts: [
-                    { inlineData: { mimeType: file.type, data: base64Data } },
-                    { text: "Identify the location in this photo. Look for Kigali landmarks like the Convention Center, Rwandan flag, or street names. Describe the environment and the person's status briefly." }
-                ]
-            }]
-        });
-
-        const responseText = result.response.text();
-        logDiv.innerHTML = "✅ Gemini Analysis Complete.";
-        return responseText;
-    } catch (error) {
-        logDiv.innerHTML = "❌ Gemini Scan Error.";
-        return "Location details unavailable.";
-    }
-}
-
-/**
- * REGISTER PERSON
+ * REGISTER PERSON (Face only)
  */
 async function addMissingPerson() {
     const status = document.getElementById('status');
     const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const contact = document.getElementById('contact').value.trim();
     const photo = document.getElementById('missing-photo').files[0];
 
-    if (!name || !photo) { status.innerText = "⚠️ Name/Photo required."; return; }
+    if (!name || !photo || !email) { 
+        status.innerText = "⚠️ Name, Email, and Photo are required."; 
+        return; 
+    }
 
     status.innerHTML = `<span class="spinner"></span> Extracting facial features...`;
 
     try {
         const img = await faceapi.bufferToImage(photo);
-        const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+        const detection = await faceapi.detectSingleFace(img)
+                                      .withFaceLandmarks()
+                                      .withFaceDescriptor();
 
-        if (!detection) throw new Error("Face not clear enough.");
+        if (!detection) throw new Error("Face not clear enough. Please use a different photo.");
 
         const person = {
-            name,
-            email: document.getElementById('email').value,
-            contact: document.getElementById('contact').value,
-            location: document.getElementById('location').value,
+            name: name,
+            email: email,
+            contact: contact,
+            // Save descriptor as a standard array for localStorage compatibility
             descriptor: Array.from(detection.descriptor)
         };
 
@@ -85,57 +56,77 @@ async function addMissingPerson() {
         db.push(person);
         localStorage.setItem('foundPeople', JSON.stringify(db));
 
-        status.innerHTML = `<span style="color:var(--green)">✅ Registered: ${name}</span>`;
-    } catch (e) { status.innerText = `❌ ${e.message}`; }
+        status.innerHTML = `<span style="color:var(--green)">✅ Successfully Registered: ${name}</span>`;
+        
+        // Clear inputs
+        document.getElementById('name').value = "";
+    } catch (e) { 
+        status.innerText = `❌ ${e.message}`; 
+    }
 }
 
 /**
- * SCAN FOUND (LANDMARKS + FACE)
+ * SCAN FOUND PERSON (Face comparison only)
  */
 async function checkFoundPerson() {
     const resultDiv = document.getElementById('result');
     const file = document.getElementById('found-photo').files[0];
-    const finderEmail = document.getElementById('finder-email').value;
+    const finderEmail = document.getElementById('finder-email').value.trim();
 
-    if (!file || !finderEmail) { resultDiv.innerText = "⚠️ Photo/Email required."; return; }
+    if (!file || !finderEmail) { 
+        resultDiv.innerText = "⚠️ Photo and your Email are required."; 
+        return; 
+    }
 
-    resultDiv.innerHTML = `<span class="spinner"></span> Running Multimodal AI Scan...`;
+    resultDiv.innerHTML = `<span class="spinner"></span> Scanning face against database...`;
 
     try {
         const img = await faceapi.bufferToImage(file);
-        const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+        const detection = await faceapi.detectSingleFace(img)
+                                      .withFaceLandmarks()
+                                      .withFaceDescriptor();
         
-        // Start Gemini environmental analysis
-        const locationReport = await analyzeEnvironment(file);
+        if (!detection) {
+            resultDiv.innerText = "⚠️ No face detected in the photo.";
+            return;
+        }
 
         const db = JSON.parse(localStorage.getItem('foundPeople') || '[]');
         let match = null;
+        let bestDist = 1.0;
 
-        if (detection && db.length > 0) {
-            db.forEach(person => {
-                if (person.descriptor && person.descriptor.length === detection.descriptor.length) {
-                    const dist = faceapi.euclideanDistance(detection.descriptor, new Float32Array(person.descriptor));
-                    if (dist < threshold) match = person;
+        // Compare against stored descriptors
+        db.forEach(person => {
+            if (person.descriptor) {
+                const dist = faceapi.euclideanDistance(detection.descriptor, new Float32Array(person.descriptor));
+                if (dist < threshold && dist < bestDist) {
+                    bestDist = dist;
+                    match = person;
                 }
-            });
-        }
+            }
+        });
 
         if (match) {
-            resultDiv.innerText = "⏳ Sending matching alerts...";
+            resultDiv.innerText = "⏳ Match Found! Sending alerts...";
             
+            const accuracy = ((1 - bestDist) * 100).toFixed(1);
+
             await emailjs.send('service_kebubpr', 'template_0i301n8', {
                 to_email: match.email,
                 contact_name: match.contact,
                 missing_name: match.name,
-                message: `URGENT: ${match.name} was found. \n\nLOCATION SCAN: ${locationReport} \n\nCONTACT FINDER: ${finderEmail}`
+                message: `GOOD NEWS: ${match.name} was identified with ${accuracy}% accuracy. Please contact the finder at: ${finderEmail}`
             });
 
-            resultDiv.innerHTML = `<div style="color:var(--green)"><b>✅ MATCH: ${match.name}</b><br><br><b>Location:</b> ${locationReport}</div>`;
+            resultDiv.innerHTML = `<div style="color:var(--green)"><b>✅ MATCH CONFIRMED: ${match.name}</b><br>Alert emails have been sent to the family.</div>`;
         } else {
-            resultDiv.innerHTML = `<div style="color:orange"><b>🔍 No match in database, but Gemini Analysis:</b><br><br>${locationReport}</div>`;
+            resultDiv.innerHTML = `<div style="color:orange">🔍 No match found in the database.</div>`;
         }
-    } catch (e) { resultDiv.innerText = `❌ Error: ${e.message}`; }
+    } catch (e) { 
+        resultDiv.innerText = `❌ Error: ${e.message}`; 
+    }
 }
 
+// Attach functions to window for HTML access
 window.addMissingPerson = addMissingPerson;
 window.checkFoundPerson = checkFoundPerson;
