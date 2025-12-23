@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// 1. SETUP
 const API_KEY = "AIzaSyCXjwe_OGpcaEni5Zyctvw9ooclpwLQXU0";
 const genAI = new GoogleGenerativeAI(API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
@@ -10,108 +11,154 @@ const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 const threshold = 0.6;
 
 async function loadModels() {
-    await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
-    await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-    await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-    console.log("AI Models Loaded");
+  try {
+    await Promise.all([
+      faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+    ]);
+    console.log("AI Models Ready");
+  } catch (e) { console.error("Model Error:", e); }
 }
 loadModels();
 
 /**
- * GEMINI LANDMARK SCAN (Rwanda Optimized)
+ * GEMINI SCAN: LANDMARKS & ENVIRONMENT
  */
 async function analyzeEnvironment(file) {
-    try {
-        const base64Data = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result.split(',')[1]);
-            reader.readAsDataURL(file);
-        });
+  try {
+    const base64Data = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.readAsDataURL(file);
+    });
 
-        const result = await model.generateContent({
-            contents: [{
-                role: 'user',
-                parts: [
-                    { inlineData: { mimeType: file.type, data: base64Data } },
-                    { text: "Identify the location in Rwanda. Look for the Kigali Convention Center, Rwandan flag, or specific street signs. Describe the surroundings and the person's status to help their family." }
-                ]
-            }]
-        });
-        return result.response.text();
-    } catch (e) { return "Could not determine location."; }
+    const result = await model.generateContent({
+      contents: [{
+        role: 'user',
+        parts: [
+          { inlineData: { mimeType: file.type, data: base64Data } },
+          { text: "Identify the location in this photo. Be specific about Rwanda landmarks like Kigali Convention Center or street signs. Describe the surroundings and the person's status. Keep it brief." }
+        ]
+      }]
+    });
+    return result.response.text();
+  } catch (error) {
+    console.error("Gemini Scan Error:", error);
+    return "Environmental details currently unavailable.";
+  }
 }
 
 /**
  * REGISTER PERSON
  */
-window.addMissingPerson = async () => {
-    const status = document.getElementById('status');
-    const name = document.getElementById('name').value;
-    const photo = document.getElementById('missing-photo').files[0];
+async function addMissingPerson() {
+  const status = document.getElementById('status');
+  const btn = document.querySelector('.btn-missing');
+  const name = document.getElementById('name').value.trim();
+  const file = document.getElementById('missing-photo').files[0];
 
-    if (!name || !photo) return alert("Fill all fields");
+  if (!name || !file) {
+    status.innerHTML = "⚠️ Please provide a name and photo.";
+    return;
+  }
 
-    status.innerHTML = `<span class="spinner"></span> Extracting face...`;
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span> Processing Face...`;
 
-    const img = await faceapi.bufferToImage(photo);
+  try {
+    const img = await faceapi.bufferToImage(file);
     const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
 
-    if (!detection) {
-        status.innerText = "❌ No face found. Try again.";
-        return;
-    }
+    if (!detection) throw new Error("Face not clear enough. Try another photo.");
 
     const person = {
-        name,
-        email: document.getElementById('email').value,
-        descriptor: Array.from(detection.descriptor)
+      name,
+      email: document.getElementById('email').value,
+      contact: document.getElementById('contact').value,
+      location: document.getElementById('location').value,
+      descriptor: Array.from(detection.descriptor) // Ensure 128-float array
     };
 
-    const db = JSON.parse(localStorage.getItem('rwanda_db') || '[]');
+    const db = JSON.parse(localStorage.getItem('foundPeople') || '[]');
     db.push(person);
-    localStorage.setItem('rwanda_db', JSON.stringify(db));
-    status.innerText = "✅ Saved to Database";
-};
+    localStorage.setItem('foundPeople', JSON.stringify(db));
+
+    status.innerHTML = `<span style="color:var(--green)">✅ Registered: ${name}</span>`;
+  } catch (e) {
+    status.innerHTML = `<span style="color:red">❌ ${e.message}</span>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerText = "Register Person";
+  }
+}
 
 /**
- * SCAN FOUND (Gemini + Face API)
+ * SCAN FOUND PERSON (LANDMARKS + FACE)
  */
-window.checkFoundPerson = async () => {
-    const resultDiv = document.getElementById('result');
-    const photo = document.getElementById('found-photo').files[0];
+async function checkFoundPerson() {
+  const resultDiv = document.getElementById('result');
+  const btn = document.querySelector('.btn-found');
+  const file = document.getElementById('found-photo').files[0];
+  const finderEmail = document.getElementById('finder-email').value;
 
-    if (!photo) return alert("Upload photo");
+  if (!file || !finderEmail) {
+    resultDiv.innerText = "⚠️ Finder email and photo required.";
+    return;
+  }
 
-    resultDiv.innerHTML = `<span class="spinner"></span> AI Scanning (Face & Landmarks)...`;
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span> Analyzing Image...`;
 
-    // 1. Run Gemini first (It identifies the Convention Center / Flag)
-    const locationReport = await analyzeEnvironment(photo);
+  try {
+    const img = await faceapi.bufferToImage(file);
+    const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+    
+    // Always trigger Gemini for the location/landmark report
+    const locationReport = await analyzeEnvironment(file);
 
-    // 2. Try Face Recognition
-    try {
-        const img = await faceapi.bufferToImage(photo);
-        const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
-        
-        const db = JSON.parse(localStorage.getItem('rwanda_db') || '[]');
-        let match = null;
+    const db = JSON.parse(localStorage.getItem('foundPeople') || '[]');
+    let match = null;
 
-        if (detection && db.length > 0) {
-            db.forEach(person => {
-                // FIXED: Ensure descriptor exists and is valid length
-                if (person.descriptor && person.descriptor.length === 128) {
-                    const dist = faceapi.euclideanDistance(detection.descriptor, new Float32Array(person.descriptor));
-                    if (dist < threshold) match = person;
-                }
-            });
+    if (detection && db.length > 0) {
+      db.forEach(person => {
+        // LENGTH CHECK FIX: Prevents the euclideanDistance crash
+        if (person.descriptor && person.descriptor.length === detection.descriptor.length) {
+          const dist = faceapi.euclideanDistance(detection.descriptor, new Float32Array(person.descriptor));
+          if (dist < threshold) match = person;
         }
-
-        if (match) {
-            resultDiv.innerHTML = `<b style="color:var(--green)">✅ MATCH: ${match.name}</b><br><br><b>Location Report:</b> ${locationReport}`;
-            // Send Email here...
-        } else {
-            resultDiv.innerHTML = `<b style="color:orange">🔍 Person not in database, but Gemini identified location:</b><br><br>${locationReport}`;
-        }
-    } catch (e) {
-        resultDiv.innerHTML = `<b>Location Scan:</b> ${locationReport}<br><br><small>Face Scan Error: ${e.message}</small>`;
+      });
     }
-};
+
+    if (match) {
+      resultDiv.innerHTML = `⏳ Sending Alert to family...`;
+      
+      const msg = `MATCH FOUND: ${match.name}. Location Report: ${locationReport}. Contact Finder: ${finderEmail}`;
+      await emailjs.send('service_kebubpr', 'template_0i301n8', {
+        to_email: match.email,
+        contact_name: match.contact,
+        missing_name: match.name,
+        message: msg
+      });
+
+      resultDiv.innerHTML = `<div style="text-align:left; color:var(--green)">
+        <b>✅ MATCH FOUND: ${match.name}</b><br><br>
+        <b>Landmark Analysis:</b> ${locationReport}
+      </div>`;
+    } else {
+      resultDiv.innerHTML = `<div style="text-align:left; color:var(--muted)">
+        <b>🔍 No Face Match in Database</b><br><br>
+        <b>But Gemini scanned the scene:</b><br>${locationReport}
+      </div>`;
+    }
+  } catch (e) {
+    resultDiv.innerHTML = `❌ Scan Error: ${e.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.innerText = "Start AI Recognition";
+  }
+}
+
+// Global scope attachment
+window.addMissingPerson = addMissingPerson;
+window.checkFoundPerson = checkFoundPerson;
