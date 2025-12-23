@@ -45,14 +45,6 @@
     button:hover { opacity: 0.9; transform: scale(1.01); }
 
     #status, #result { margin-top: 20px; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid var(--border); min-height: 50px; display: flex; align-items: center; justify-content: center; font-weight: 500; }
-
-    /* New Styling for How It Works Section */
-    .how-it-works { margin-top: 60px; padding: 40px; background: var(--card); border-radius: 22px; border: 1px solid var(--border); }
-    .how-it-works h2 { text-align: center; margin-bottom: 30px; color: var(--text); }
-    .steps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
-    .step { text-align: center; }
-    .step-number { width: 40px; height: 40px; background: var(--gradient); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; font-weight: bold; color: #0b0f1a; }
-    .step p { font-size: 0.9rem; color: var(--muted); line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -87,33 +79,6 @@
     <button class="btn-found" onclick="checkFoundPerson()">Scan for Match</button>
     <div id="result">Waiting for upload...</div>
   </div>
-
-  <section class="how-it-works">
-    <h2>How It Works</h2>
-    
-    <div class="steps-grid">
-      <div class="step">
-        <div class="step-number">1</div>
-        <h4>Registration</h4>
-        <p>Families upload photos of missing loved ones. Our AI extracts unique facial "descriptors" to store in a secure local database.</p>
-      </div>
-      <div class="step">
-        <div class="step-number">2</div>
-        <h4>AI Scanning</h4>
-        <p>When someone is found, a photo is uploaded. The AI compares 68 facial landmarks against the registered database in real-time.</p>
-      </div>
-      <div class="step">
-        <div class="step-number">3</div>
-        <h4>Verification</h4>
-        <p>The system calculates a mathematical distance between faces. A match is triggered if the similarity exceeds 94% accuracy.</p>
-      </div>
-      <div class="step">
-        <div class="step-number">4</div>
-        <h4>Reunification</h4>
-        <p>Upon a match, EmailJS automatically exchanges contact details between the family and the finder to facilitate a safe return.</p>
-      </div>
-    </div>
-  </section>
 </div>
 
 <script src="script.js"></script>
