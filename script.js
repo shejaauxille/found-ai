@@ -131,7 +131,7 @@ function sendDualEmails(match, finderEmail, finderPhone, accuracy) {
     to_email: match.email,
     contact_name: match.contact,
     missing_name: match.name,
-    message: `GREAT NEWS: ${match.name} was spotted with ${accuracy}% accuracy. Please contact the finder: ${finderEmail} | Phone: ${finderPhone}`
+    message: `GREAT NEWS: ${match.name} was spotted with ${accuracy}% accuracy. Please contact the finder at: ${finderEmail} | Phone: ${finderPhone}`
   };
 
   // Email to Finder
@@ -139,7 +139,7 @@ function sendDualEmails(match, finderEmail, finderPhone, accuracy) {
     to_email: finderEmail,
     contact_name: "Hero Finder",
     missing_name: match.name,
-    message: `MATCH CONFIRMED: You found ${match.name} (${accuracy}% accuracy). Contact Family (${match.contact}): ${match.email} | Phone: ${match.phone}`
+    message: `MATCH CONFIRMED: You found ${match.name} (${accuracy}% accuracy). This person is from ${match.location}. Please contact the family (${match.contact}) at: ${match.email} | Phone: ${match.phone}`
   };
 
   Promise.all([
