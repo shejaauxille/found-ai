@@ -10,20 +10,71 @@ emailjs.init("OCug6QTCHUuWt7iCr");
 const threshold = 0.6;
 const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 
+// Load AI Models
 async function loadModels() {
-    await Promise.all([
-        faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-    ]);
-    console.log("AI & Gemini Systems Online");
+    try {
+        await Promise.all([
+            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ]);
+        console.log("AI & Gemini Systems Online");
+    } catch (err) {
+        console.error("Model Loading Error:", err);
+    }
 }
 loadModels();
 
-// 2. GEMINI MULTIMODAL FEATURE: SMART EYEWITNESS
+/**
+ * 2. REGISTRATION LOGIC (The missing function!)
+ * This saves the person's face data into the browser's memory.
+ */
+async function addMissingPerson() {
+    const status = document.getElementById('status');
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const contact = document.getElementById('contact').value.trim();
+    const files = document.getElementById('missing-photo').files;
+
+    if (!name || !email || files.length === 0) {
+        status.innerHTML = `<span style="color: #ff4f4f">⚠️ Please fill all fields and select a photo.</span>`;
+        return;
+    }
+
+    status.innerHTML = `<span style="color: var(--purple)">🤖 Processing face data...</span>`;
+
+    try {
+        const descriptors = [];
+        for (let file of files) {
+            const img = await faceapi.bufferToImage(file);
+            const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+            if (detection) {
+                descriptors.push(Array.from(detection.descriptor));
+            }
+        }
+
+        if (descriptors.length === 0) {
+            status.innerHTML = `<span style="color: #ff4f4f">❌ No face detected. Use a clearer photo.</span>`;
+            return;
+        }
+
+        // Save to LocalStorage
+        const stored = JSON.parse(localStorage.getItem('foundPeople') || '[]');
+        stored.push({ name, email, contact, descriptors });
+        localStorage.setItem('foundPeople', JSON.stringify(stored));
+
+        status.innerHTML = `<span style="color: var(--green)">✅ Registered Successfully!</span>`;
+        document.getElementById('name').value = ''; // Clear fields
+    } catch (e) {
+        status.innerHTML = `<span style="color: #ff4f4f">❌ Error: ${e.message}</span>`;
+    }
+}
+
+/**
+ * 3. GEMINI MULTIMODAL FEATURE: SMART EYEWITNESS
+ */
 async function analyzeEnvironment(file) {
     try {
-        // Convert image file to base64 for Gemini
         const base64Data = await new Promise((resolve) => {
             const reader = new FileReader();
             reader.onloadend = () => resolve(reader.result.split(',')[1]);
@@ -33,8 +84,7 @@ async function analyzeEnvironment(file) {
         const prompt = `Analyze this photo taken by someone who found a missing person. 
         Describe the environment to help the family find the location. 
         Identify landmarks, store names, street signs, or unique background features. 
-        Describe the person's visible condition briefly (e.g., "sitting on a park bench, looks confused"). 
-        Keep it concise and empathetic.`;
+        Describe the person's condition briefly. Keep it concise.`;
 
         const result = await model.generateContent([
             prompt,
@@ -43,30 +93,32 @@ async function analyzeEnvironment(file) {
         
         return result.response.text();
     } catch (error) {
-        console.error("Gemini Analysis Error:", error);
-        return "Environmental analysis currently unavailable.";
+        console.error("Gemini Error:", error);
+        return "Environmental analysis unavailable.";
     }
 }
 
-// 3. MATCHING LOGIC (Modified to include Gemini)
+/**
+ * 4. SEARCHING & MATCHING LOGIC
+ */
 async function checkFoundPerson() {
     const resultDiv = document.getElementById('result');
     const finderEmail = document.getElementById('finder-email').value.trim();
     const file = document.getElementById('found-photo').files[0];
 
     if (!finderEmail || !file) {
-        resultDiv.innerHTML = '<span style="color: #ff4f4f">⚠️ Provide email and photo.</span>';
+        resultDiv.innerHTML = '<span style="color: #ff4f4f">⚠️ Provide your email and the found photo.</span>';
         return;
     }
 
-    resultDiv.innerHTML = '<span style="color: var(--blue)">🤖 AI is identifying person and surroundings...</span>';
+    resultDiv.innerHTML = '<span style="color: var(--blue)">🤖 AI is searching for matches...</span>';
 
     try {
         const img = await faceapi.bufferToImage(file);
         const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
 
         if (!detection) {
-            resultDiv.innerHTML = '<span style="color: orange">⚠️ No face found in photo.</span>';
+            resultDiv.innerHTML = '<span style="color: orange">⚠️ No face found in this photo.</span>';
             return;
         }
 
@@ -85,28 +137,29 @@ async function checkFoundPerson() {
         if (bestMatch.distance < threshold) {
             const accuracy = ((1 - bestMatch.distance) * 100).toFixed(1);
             
-            // ACTIVATE SMART EYEWITNESS
-            resultDiv.innerHTML = '<span style="color: var(--purple)">🧠 Gemini is analyzing the scene...</span>';
+            resultDiv.innerHTML = '<span style="color: var(--purple)">🧠 Identifying location with Gemini AI...</span>';
             const envDescription = await analyzeEnvironment(file);
             
-            const messageForEmails = `A match was found with ${accuracy}% accuracy. 
-            EYEWITNESS REPORT: ${envDescription} 
-            Please contact the finder immediately at: ${finderEmail}`;
+            const messageForEmails = `A match was found with ${accuracy}% accuracy.\n\nEYEWITNESS REPORT: ${envDescription}\n\nPlease contact the finder immediately at: ${finderEmail}`;
 
             await sendDualEmails(bestMatch.person, finderEmail, messageForEmails);
             
             resultDiv.innerHTML = `
-                <div style="background: rgba(39, 255, 155, 0.1); padding: 15px; border-radius: 10px; border: 1px solid var(--green);">
-                    <h4 style="margin:0; color: var(--green);">Match Confirmed!</h4>
-                    <p style="font-size: 0.9rem; margin: 10px 0 0;">Intelligent report and contact details sent to both parties.</p>
+                <div style="background: rgba(39, 255, 155, 0.1); padding: 15px; border-radius: 10px; border: 2px solid var(--green);">
+                    <h4 style="margin:0; color: var(--green);">🎉 Match Confirmed!</h4>
+                    <p style="font-size: 0.9rem; margin: 10px 0 0;">An AI-generated report and contact details have been sent to the family.</p>
                 </div>`;
         } else {
-            resultDiv.innerHTML = '<span style="color: var(--muted)">🔍 No match found in database.</span>';
+            resultDiv.innerHTML = '<span style="color: var(--muted)">🔍 No match found in our records.</span>';
         }
-    } catch (e) { resultDiv.innerHTML = "❌ Error: " + e.message; }
+    } catch (e) { 
+        resultDiv.innerHTML = "❌ Error: " + e.message; 
+    }
 }
 
-// 4. EMAIL LOGIC
+/**
+ * 5. EMAIL LOGIC
+ */
 async function sendDualEmails(match, finderEmail, finalMessage) {
     const serviceID = 'service_kebubpr';
     const templateID = 'template_0i301n8';
@@ -122,7 +175,7 @@ async function sendDualEmails(match, finderEmail, finalMessage) {
         to_email: finderEmail,
         contact_name: "Hero Finder",
         missing_name: match.name,
-        message: `System confirmed a match for ${match.name}. The family has been notified. Family Contact: ${match.email}`
+        message: `System matched ${match.name}. The family has been notified. Contact the family at: ${match.email}`
     };
 
     return Promise.all([
@@ -131,5 +184,6 @@ async function sendDualEmails(match, finderEmail, finalMessage) {
     ]);
 }
 
-// Attach the function to your global scope if needed
+// 6. EXPOSE FUNCTIONS TO BUTTONS
+window.addMissingPerson = addMissingPerson;
 window.checkFoundPerson = checkFoundPerson;
