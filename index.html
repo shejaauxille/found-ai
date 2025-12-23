@@ -1,65 +1,117 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Found AI - Rwanda Edition</title>
-  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-  <style>
-    :root {
-      --bg: #0b0f1a; --card: rgba(255,255,255,0.06); --border: rgba(255,255,255,0.12);
-      --text: #eaeaf0; --blue: #4f7cff; --green: #27ff9b; --purple: #9b7bff;
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+const API_KEY = "AIzaSyCXjwe_OGpcaEni5Zyctvw9ooclpwLQXU0";
+const genAI = new GoogleGenerativeAI(API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+emailjs.init("OCug6QTCHUuWt7iCr");
+
+const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+const threshold = 0.6;
+
+async function loadModels() {
+    await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+    console.log("AI Models Loaded");
+}
+loadModels();
+
+/**
+ * GEMINI LANDMARK SCAN (Rwanda Optimized)
+ */
+async function analyzeEnvironment(file) {
+    try {
+        const base64Data = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result.split(',')[1]);
+            reader.readAsDataURL(file);
+        });
+
+        const result = await model.generateContent({
+            contents: [{
+                role: 'user',
+                parts: [
+                    { inlineData: { mimeType: file.type, data: base64Data } },
+                    { text: "Identify the location in Rwanda. Look for the Kigali Convention Center, Rwandan flag, or specific street signs. Describe the surroundings and the person's status to help their family." }
+                ]
+            }]
+        });
+        return result.response.text();
+    } catch (e) { return "Could not determine location."; }
+}
+
+/**
+ * REGISTER PERSON
+ */
+window.addMissingPerson = async () => {
+    const status = document.getElementById('status');
+    const name = document.getElementById('name').value;
+    const photo = document.getElementById('missing-photo').files[0];
+
+    if (!name || !photo) return alert("Fill all fields");
+
+    status.innerHTML = `<span class="spinner"></span> Extracting face...`;
+
+    const img = await faceapi.bufferToImage(photo);
+    const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+
+    if (!detection) {
+        status.innerText = "❌ No face found. Try again.";
+        return;
     }
-    body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; }
-    .container { width: 100%; max-width: 800px; padding: 40px 20px; }
-    .form-container { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 30px; margin-top: 20px; display: none; }
-    .input-group { margin-bottom: 15px; }
-    input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: #0d1328; color: white; }
-    button { width: 100%; padding: 15px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; }
-    .btn-missing { background: linear-gradient(135deg, #4f7cff, #9b7bff); color: white; }
-    .btn-found { background: linear-gradient(135deg, #27ff9b, #18c27a); color: #04150e; }
-    #status, #result { margin-top: 20px; padding: 15px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); }
-    .spinner { width: 18px; height: 18px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
-</head>
-<body>
-<div class="container">
-  <h1 style="text-align:center">Found AI</h1>
-  <div style="display:flex; gap:10px;">
-    <button class="btn-missing" onclick="toggleForm('missing')">Register Missing</button>
-    <button class="btn-found" onclick="toggleForm('found')">Report Found</button>
-  </div>
 
-  <div id="form-missing" class="form-container">
-    <h2>Missing Person Registration</h2>
-    <div class="input-group"><label>Full Name</label><input type="text" id="name"></div>
-    <div class="input-group"><label>Email</label><input type="email" id="email"></div>
-    <div class="input-group"><label>Photo</label><input type="file" id="missing-photo" accept="image/*"></div>
-    <button class="btn-missing" onclick="addMissingPerson()">Save to Database</button>
-    <div id="status">Ready</div>
-  </div>
+    const person = {
+        name,
+        email: document.getElementById('email').value,
+        descriptor: Array.from(detection.descriptor)
+    };
 
-  <div id="form-found" class="form-container">
-    <h2>Scan Photo (Landmarks & Faces)</h2>
-    <div class="input-group"><label>Your Email</label><input type="email" id="finder-email"></div>
-    <div class="input-group"><label>Found Photo</label><input type="file" id="found-photo" accept="image/*"></div>
-    <button class="btn-found" onclick="checkFoundPerson()">Analyze Photo</button>
-    <div id="result">Waiting for upload...</div>
-  </div>
-</div>
+    const db = JSON.parse(localStorage.getItem('rwanda_db') || '[]');
+    db.push(person);
+    localStorage.setItem('rwanda_db', JSON.stringify(db));
+    status.innerText = "✅ Saved to Database";
+};
 
-<script type="importmap">
-  { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai" } }
-</script>
-<script type="module" src="script.js"></script>
-<script>
-  function toggleForm(type) {
-    document.getElementById('form-missing').style.display = 'none';
-    document.getElementById('form-found').style.display = 'none';
-    document.getElementById('form-' + type).style.display = 'block';
-  }
-</script>
-</body>
-</html>
+/**
+ * SCAN FOUND (Gemini + Face API)
+ */
+window.checkFoundPerson = async () => {
+    const resultDiv = document.getElementById('result');
+    const photo = document.getElementById('found-photo').files[0];
+
+    if (!photo) return alert("Upload photo");
+
+    resultDiv.innerHTML = `<span class="spinner"></span> AI Scanning (Face & Landmarks)...`;
+
+    // 1. Run Gemini first (It identifies the Convention Center / Flag)
+    const locationReport = await analyzeEnvironment(photo);
+
+    // 2. Try Face Recognition
+    try {
+        const img = await faceapi.bufferToImage(photo);
+        const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+        
+        const db = JSON.parse(localStorage.getItem('rwanda_db') || '[]');
+        let match = null;
+
+        if (detection && db.length > 0) {
+            db.forEach(person => {
+                // FIXED: Ensure descriptor exists and is valid length
+                if (person.descriptor && person.descriptor.length === 128) {
+                    const dist = faceapi.euclideanDistance(detection.descriptor, new Float32Array(person.descriptor));
+                    if (dist < threshold) match = person;
+                }
+            });
+        }
+
+        if (match) {
+            resultDiv.innerHTML = `<b style="color:var(--green)">✅ MATCH: ${match.name}</b><br><br><b>Location Report:</b> ${locationReport}`;
+            // Send Email here...
+        } else {
+            resultDiv.innerHTML = `<b style="color:orange">🔍 Person not in database, but Gemini identified location:</b><br><br>${locationReport}`;
+        }
+    } catch (e) {
+        resultDiv.innerHTML = `<b>Location Scan:</b> ${locationReport}<br><br><small>Face Scan Error: ${e.message}</small>`;
+    }
+};
